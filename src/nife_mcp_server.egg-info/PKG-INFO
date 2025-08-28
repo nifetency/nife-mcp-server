@@ -1,0 +1,193 @@
+Metadata-Version: 2.4
+Name: nife-mcp-server
+Version: 1.0.0
+Summary: MCP server for Nife.io cloud platform management
+Author-email: "Nife.io Team" <support@nife.io>
+License: MIT
+Project-URL: Homepage, https://github.com/nife-io/nife-mcp-server
+Project-URL: Repository, https://github.com/nife-io/nife-mcp-server
+Project-URL: Documentation, https://docs.nife.io/mcp
+Project-URL: Bug Reports, https://github.com/nife-io/nife-mcp-server/issues
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Developers
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Requires-Python: >=3.8
+Description-Content-Type: text/markdown
+Requires-Dist: mcp>=0.1.0
+Requires-Dist: httpx>=0.24.0
+Requires-Dist: pydantic>=2.0.0
+
+# Nife.io MCP Server
+
+A Model Context Protocol (MCP) server that interfaces with the Nife.io GraphQL API.
+
+## Overview
+
+This MCP server provides a standardized interface to interact with Nife.io's GraphQL API, allowing you to:
+
+- Retrieve model context data from Nife.io
+- Update model context via GraphQL mutations
+- Execute custom GraphQL queries
+- Introspect the Nife.io GraphQL schema
+- Health check endpoints
+
+## Features
+
+- **GraphQL Integration**: Full integration with Nife.io's GraphQL API
+- **Authentication Support**: Bearer token authentication
+- **CORS Enabled**: Cross-origin requests supported
+- **Error Handling**: Comprehensive error handling and validation
+- **Schema Introspection**: Retrieve and explore the GraphQL schema
+- **Custom Queries**: Execute arbitrary GraphQL queries and mutations
+
+## API Endpoints
+
+### MCP Endpoints
+
+- `GET /api/mcp/context` - Get model context from Nife.io
+- `POST /api/mcp/context` - Update model context via Nife.io
+- `GET /api/mcp/schema` - Get the GraphQL schema from Nife.io
+- `POST /api/mcp/query` - Execute custom GraphQL queries
+- `GET /api/mcp/health` - Health check endpoint
+
+### Authentication
+
+The server supports authentication via:
+
+1. **Authorization Header**: Include `Authorization: Bearer <token>` in your requests
+2. **Environment Variable**: Set `NIFE_ACCESS_TOKEN` environment variable
+
+To obtain an access token, use the Nife CLI:
+```bash
+nifectl auth login
+nifectl auth token
+```
+
+## Installation
+
+1. Clone or download the project
+2. Navigate to the project directory:
+   ```bash
+   cd nife-mcp-server
+   ```
+3. Activate the virtual environment:
+   ```bash
+   source venv/bin/activate
+   ```
+4. Install dependencies (already installed in template):
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+## Usage
+
+### Starting the Server
+
+```bash
+cd nife-mcp-server
+source venv/bin/activate
+python src/main.py
+```
+
+The server will start on `http://0.0.0.0:5000`
+
+### Environment Variables
+
+- `NIFE_ACCESS_TOKEN`: Your Nife.io access token (optional if using Authorization header)
+
+### Example Requests
+
+#### Get Model Context
+```bash
+curl -X GET "http://localhost:5000/api/mcp/context?type=general&limit=10" \
+  -H "Authorization: Bearer YOUR_TOKEN"
+```
+
+#### Execute Custom Query
+```bash
+curl -X POST "http://localhost:5000/api/mcp/query" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -d '{
+    "query": "query { apps { id name status } }",
+    "variables": {}
+  }'
+```
+
+#### Get Schema
+```bash
+curl -X GET "http://localhost:5000/api/mcp/schema" \
+  -H "Authorization: Bearer YOUR_TOKEN"
+```
+
+#### Health Check
+```bash
+curl -X GET "http://localhost:5000/api/mcp/health"
+```
+
+## Project Structure
+
+```
+nife-mcp-server/
+├── venv/                   # Virtual environment
+├── src/
+│   ├── models/            # Database models
+│   ├── routes/
+│   │   ├── user.py       # User routes (template)
+│   │   └── mcp.py        # MCP server routes
+│   ├── static/           # Static files
+│   ├── main.py           # Main Flask application
+│   └── database/         # SQLite database
+├── requirements.txt       # Python dependencies
+└── README.md             # This file
+```
+
+## Development
+
+### Adding New Endpoints
+
+1. Add new routes to `src/routes/mcp.py`
+2. Update the health check endpoint to include new endpoints
+3. Test the new functionality
+
+### GraphQL Client
+
+The `NifeGraphQLClient` class in `src/routes/mcp.py` handles all GraphQL communication with Nife.io. It includes:
+
+- Automatic authentication header handling
+- Error handling for network requests
+- JSON payload formatting
+
+### Error Handling
+
+The server includes comprehensive error handling:
+
+- Network request failures
+- GraphQL query/mutation errors
+- Authentication errors
+- Validation errors
+
+## Deployment
+
+To deploy this server:
+
+1. Ensure all dependencies are in `requirements.txt`
+2. Set the `NIFE_ACCESS_TOKEN` environment variable
+3. Deploy using your preferred method (Docker, cloud platforms, etc.)
+
+## Notes
+
+- The GraphQL queries and mutations in the code are placeholders and need to be updated based on the actual Nife.io GraphQL schema
+- Authentication tokens can be obtained using the Nife CLI (`nifectl auth token`)
+- The server listens on `0.0.0.0:5000` to allow external access during deployment
+
+## License
+
+This project is provided as-is for interfacing with the Nife.io GraphQL API.
+

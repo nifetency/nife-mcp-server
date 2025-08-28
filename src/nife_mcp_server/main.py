@@ -21,8 +21,8 @@ logger = logging.getLogger(__name__)
 # Import your existing models and create Flask app context
 from flask import Flask
 from flask_cors import CORS
-from src.models.user import db
-from src.routes.mcp import NifeGraphQLClient
+from nife_mcp_server.models.user import db
+from nife_mcp_server.routes.mcp import NifeGraphQLClient
 
 # Create Flask app for database context
 app = Flask(__name__)

@@ -8,9 +8,9 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
 from flask import Flask, send_from_directory
 from flask_cors import CORS
-from src.models.user import db
-from src.routes.user import user_bp
-from src.routes.mcp import mcp_bp
+from nife_mcp_server.models.user import db
+from nife_mcp_server.routes.user import user_bp
+from nife_mcp_server.routes.mcp import mcp_bp
 
 # Create a null stream to discard output
 class NullIO(StringIO):
