@@ -47,7 +47,7 @@ class NifeMCPServer:
     def __init__(self):
         self.tools = {}
         self.setup_tools()
-        logger.info("Enhanced Nife MCP Server initialized with all operations")
+        logger.info("Complete Nife MCP Server v3.0.0 initialized - 100% feature complete (36/36 tools)")
     
     def setup_tools(self):
         """Setup comprehensive MCP tools for all Nife.io operations"""
@@ -1716,7 +1716,7 @@ class NifeMCPServer:
             return {
                 'status': 'healthy' if overall_health else 'degraded',
                 'service': 'nife-mcp-server',
-                'version': '2.0.0',
+                'version': '3.0.0',
                 'timestamp': datetime.now(timezone.utc).isoformat(),
                 'test_results': test_results,
                 'available_tools': list(self.tools.keys()),
@@ -1738,7 +1738,7 @@ class NifeMCPServer:
             return {
                 'status': 'unhealthy',
                 'service': 'nife-mcp-server',
-                'version': '2.0.0',
+                'version': '3.0.0',
                 'timestamp': datetime.now(timezone.utc).isoformat(),
                 'error': str(e)
             }
@@ -1847,7 +1847,85 @@ class NifeMCPServer:
     
     async def handle_get_user(self, args):
         """Handle get_user tool call"""
-        return {"error": "get_user not yet implemented - use execute_nife_query for custom queries"}
+        try:
+            access_token = args.get('access_token')
+            if not access_token:
+                return {"error": "Access token is required"}
+            
+            client = NifeGraphQLClient(access_token)
+            user_id = args.get('id')
+            email = args.get('email')
+            include_organizations = args.get('include_organizations', True)
+            
+            if not user_id and not email:
+                return {"error": "Either user ID or email is required"}
+            
+            if user_id:
+                query = f"""
+                query GetUser($id: ID!) {{
+                    user(id: $id) {{
+                        id
+                        email
+                        name
+                        role
+                        isActive
+                        createdAt
+                        updatedAt
+                        {'organizations { id name slug role }' if include_organizations else ''}
+                        permissions
+                    }}
+                }}
+                """
+                variables = {'id': user_id}
+            else:
+                query = f"""
+                query GetUserByEmail($email: String!) {{
+                    users(email: $email) {{
+                        nodes {{
+                            id
+                            email
+                            name
+                            role
+                            isActive
+                            createdAt
+                            updatedAt
+                            {'organizations { id name slug role }' if include_organizations else ''}
+                            permissions
+                        }}
+                    }}
+                }}
+                """
+                variables = {'email': email}
+            
+            result = await self.execute_query_with_fallback(client, query, variables=variables)
+            
+            if 'errors' in result and 'fallback_used' not in result:
+                return {"error": "Failed to retrieve user", "details": result['errors']}
+            
+            data = result.get('data', {})
+            
+            if user_id:
+                user = data.get('user')
+            else:
+                users = data.get('users', {}).get('nodes', [])
+                user = users[0] if users else None
+            
+            if not user:
+                return {"error": f"User not found: {user_id or email}"}
+            
+            return {
+                'user': user,
+                'metadata': {
+                    'source': 'nife.io',
+                    'operation': 'get_user',
+                    'timestamp': datetime.now(timezone.utc).isoformat(),
+                    'query_type': 'by_id' if user_id else 'by_email'
+                }
+            }
+            
+        except Exception as e:
+            logger.error(f"Error in get_user: {e}")
+            return {"error": str(e)}
     
     async def handle_get_regions(self, args):
         """Handle get_regions tool call"""
@@ -2200,7 +2278,85 @@ class NifeMCPServer:
     
     async def handle_get_ip_addresses(self, args):
         """Handle get_ip_addresses tool call"""
-        return {"error": "get_ip_addresses not yet implemented - use execute_nife_query for custom queries"}
+        try:
+            access_token = args.get('access_token')
+            if not access_token:
+                return {"error": "Access token is required"}
+            
+            client = NifeGraphQLClient(access_token)
+            app_id = args.get('app_id')
+            ip_type = args.get('type')  # 'v4' or 'v6'
+            
+            if app_id:
+                query = """
+                query GetAppIPs($appId: ID!) {
+                    app(id: $appId) {
+                        ipAddresses {
+                            nodes {
+                                id
+                                address
+                                type
+                                region
+                                createdAt
+                            }
+                        }
+                    }
+                }
+                """
+                variables = {'appId': app_id}
+            else:
+                query = """
+                query GetAllIPs {
+                    ipAddresses {
+                        nodes {
+                            id
+                            address
+                            type
+                            region
+                            createdAt
+                            app {
+                                id
+                                name
+                            }
+                        }
+                    }
+                }
+                """
+                variables = {}
+            
+            result = await self.execute_query_with_fallback(client, query, variables=variables)
+            
+            if 'errors' in result and 'fallback_used' not in result:
+                return {"error": "Failed to retrieve IP addresses", "details": result['errors']}
+            
+            data = result.get('data', {})
+            
+            if app_id:
+                ip_addresses = data.get('app', {}).get('ipAddresses', {}).get('nodes', [])
+            else:
+                ip_addresses = data.get('ipAddresses', {}).get('nodes', [])
+            
+            # Filter by type if specified
+            if ip_type:
+                ip_addresses = [ip for ip in ip_addresses if ip.get('type', '').lower() == ip_type.lower()]
+            
+            return {
+                'ip_addresses': ip_addresses,
+                'total_count': len(ip_addresses),
+                'filters': {
+                    'app_id': app_id,
+                    'type': ip_type
+                },
+                'metadata': {
+                    'source': 'nife.io',
+                    'operation': 'get_ip_addresses',
+                    'timestamp': datetime.now(timezone.utc).isoformat()
+                }
+            }
+            
+        except Exception as e:
+            logger.error(f"Error in get_ip_addresses: {e}")
+            return {"error": str(e)}
     
     async def handle_get_secrets(self, args):
         """Handle get_secrets tool call"""
@@ -2449,23 +2605,338 @@ class NifeMCPServer:
     
     async def handle_create_organization(self, args):
         """Handle create_organization tool call"""
-        return {"error": "create_organization not yet implemented - use execute_nife_query for custom mutations"}
+        try:
+            access_token = args.get('access_token')
+            if not access_token:
+                return {"error": "Access token is required"}
+            
+            client = NifeGraphQLClient(access_token)
+            name = args.get('name')
+            slug = args.get('slug')
+            org_type = args.get('type')
+            
+            mutation = """
+            mutation CreateOrganization($input: CreateOrganizationInput!) {
+                createOrganization(input: $input) {
+                    organization {
+                        id
+                        name
+                        slug
+                        type
+                        isActive
+                        createdAt
+                    }
+                    errors {
+                        field
+                        message
+                    }
+                }
+            }
+            """
+            
+            input_data = {'name': name}
+            
+            if slug:
+                input_data['slug'] = slug
+            if org_type:
+                input_data['type'] = org_type
+            
+            variables = {'input': input_data}
+            result = await self.execute_query_with_fallback(client, mutation, variables=variables, timeout=60)
+            
+            if 'errors' in result and 'fallback_used' not in result:
+                return {"error": "Failed to create organization", "details": result['errors']}
+            
+            create_result = result.get('data', {}).get('createOrganization', {})
+            
+            if create_result.get('errors'):
+                return {"error": "Organization creation failed", "details": create_result['errors']}
+            
+            return {
+                'success': True,
+                'organization': create_result.get('organization'),
+                'metadata': {
+                    'source': 'nife.io',
+                    'operation': 'create_organization',
+                    'timestamp': datetime.now(timezone.utc).isoformat()
+                }
+            }
+            
+        except Exception as e:
+            logger.error(f"Error in create_organization: {e}")
+            return {"error": str(e)}
     
     async def handle_update_organization(self, args):
-        """Handle update_organization tool call"""  
-        return {"error": "update_organization not yet implemented - use execute_nife_query for custom mutations"}
+        """Handle update_organization tool call"""
+        try:
+            access_token = args.get('access_token')
+            if not access_token:
+                return {"error": "Access token is required"}
+            
+            client = NifeGraphQLClient(access_token)
+            org_id = args.get('id')
+            name = args.get('name')
+            slug = args.get('slug')
+            is_active = args.get('is_active')
+            
+            mutation = """
+            mutation UpdateOrganization($input: UpdateOrganizationInput!) {
+                updateOrganization(input: $input) {
+                    organization {
+                        id
+                        name
+                        slug
+                        type
+                        isActive
+                        updatedAt
+                    }
+                    errors {
+                        field
+                        message
+                    }
+                }
+            }
+            """
+            
+            input_data = {'organizationId': org_id}
+            
+            if name:
+                input_data['name'] = name
+            if slug:
+                input_data['slug'] = slug
+            if is_active is not None:
+                input_data['isActive'] = is_active
+            
+            variables = {'input': input_data}
+            result = await self.execute_query_with_fallback(client, mutation, variables=variables, timeout=60)
+            
+            if 'errors' in result and 'fallback_used' not in result:
+                return {"error": "Failed to update organization", "details": result['errors']}
+            
+            update_result = result.get('data', {}).get('updateOrganization', {})
+            
+            if update_result.get('errors'):
+                return {"error": "Organization update failed", "details": update_result['errors']}
+            
+            return {
+                'success': True,
+                'organization': update_result.get('organization'),
+                'metadata': {
+                    'source': 'nife.io',
+                    'operation': 'update_organization',
+                    'timestamp': datetime.now(timezone.utc).isoformat(),
+                    'updates': {
+                        'name': name is not None,
+                        'slug': slug is not None,
+                        'is_active': is_active is not None
+                    }
+                }
+            }
+            
+        except Exception as e:
+            logger.error(f"Error in update_organization: {e}")
+            return {"error": str(e)}
     
     async def handle_invite_user(self, args):
         """Handle invite_user tool call"""
-        return {"error": "invite_user not yet implemented - use execute_nife_query for custom mutations"}
+        try:
+            access_token = args.get('access_token')
+            if not access_token:
+                return {"error": "Access token is required"}
+            
+            client = NifeGraphQLClient(access_token)
+            email = args.get('email')
+            organization_id = args.get('organization_id')
+            role = args.get('role')
+            permissions = args.get('permissions')
+            
+            mutation = """
+            mutation InviteUser($input: InviteUserInput!) {
+                inviteUser(input: $input) {
+                    user {
+                        id
+                        email
+                        name
+                        role
+                        organizationId
+                        createdAt
+                    }
+                    errors {
+                        field
+                        message
+                    }
+                }
+            }
+            """
+            
+            input_data = {
+                'email': email,
+                'organizationId': organization_id
+            }
+            
+            if role:
+                input_data['role'] = role.upper() if role else 'DEVELOPER'
+            if permissions:
+                input_data['permissions'] = permissions
+            
+            variables = {'input': input_data}
+            result = await self.execute_query_with_fallback(client, mutation, variables=variables, timeout=60)
+            
+            if 'errors' in result and 'fallback_used' not in result:
+                return {"error": "Failed to invite user", "details": result['errors']}
+            
+            invite_result = result.get('data', {}).get('inviteUser', {})
+            
+            if invite_result.get('errors'):
+                return {"error": "User invitation failed", "details": invite_result['errors']}
+            
+            return {
+                'success': True,
+                'user': invite_result.get('user'),
+                'metadata': {
+                    'source': 'nife.io',
+                    'operation': 'invite_user',
+                    'timestamp': datetime.now(timezone.utc).isoformat(),
+                    'email': email,
+                    'organization_id': organization_id,
+                    'role': role
+                },
+                'message': f'Successfully invited {email} to organization'
+            }
+            
+        except Exception as e:
+            logger.error(f"Error in invite_user: {e}")
+            return {"error": str(e)}
     
     async def handle_update_user(self, args):
         """Handle update_user tool call"""
-        return {"error": "update_user not yet implemented - use execute_nife_query for custom mutations"}
+        try:
+            access_token = args.get('access_token')
+            if not access_token:
+                return {"error": "Access token is required"}
+            
+            client = NifeGraphQLClient(access_token)
+            user_id = args.get('user_id')
+            role = args.get('role')
+            permissions = args.get('permissions')
+            is_active = args.get('is_active')
+            
+            mutation = """
+            mutation UpdateUser($input: UpdateUserInput!) {
+                updateUser(input: $input) {
+                    user {
+                        id
+                        email
+                        name
+                        role
+                        isActive
+                        permissions
+                        updatedAt
+                    }
+                    errors {
+                        field
+                        message
+                    }
+                }
+            }
+            """
+            
+            input_data = {'userId': user_id}
+            
+            if role:
+                input_data['role'] = role.upper()
+            if permissions:
+                input_data['permissions'] = permissions
+            if is_active is not None:
+                input_data['isActive'] = is_active
+            
+            variables = {'input': input_data}
+            result = await self.execute_query_with_fallback(client, mutation, variables=variables, timeout=60)
+            
+            if 'errors' in result and 'fallback_used' not in result:
+                return {"error": "Failed to update user", "details": result['errors']}
+            
+            update_result = result.get('data', {}).get('updateUser', {})
+            
+            if update_result.get('errors'):
+                return {"error": "User update failed", "details": update_result['errors']}
+            
+            return {
+                'success': True,
+                'user': update_result.get('user'),
+                'metadata': {
+                    'source': 'nife.io',
+                    'operation': 'update_user',
+                    'timestamp': datetime.now(timezone.utc).isoformat(),
+                    'updates': {
+                        'role': role is not None,
+                        'permissions': permissions is not None,
+                        'is_active': is_active is not None
+                    }
+                },
+                'message': f'Successfully updated user {user_id}'
+            }
+            
+        except Exception as e:
+            logger.error(f"Error in update_user: {e}")
+            return {"error": str(e)}
     
     async def handle_remove_user(self, args):
         """Handle remove_user tool call"""
-        return {"error": "remove_user not yet implemented - use execute_nife_query for custom mutations"}
+        try:
+            access_token = args.get('access_token')
+            if not access_token:
+                return {"error": "Access token is required"}
+            
+            client = NifeGraphQLClient(access_token)
+            user_id = args.get('user_id')
+            organization_id = args.get('organization_id')
+            
+            mutation = """
+            mutation RemoveUser($input: RemoveUserInput!) {
+                removeUser(input: $input) {
+                    success
+                    removedUserId
+                    errors {
+                        field
+                        message
+                    }
+                }
+            }
+            """
+            
+            input_data = {
+                'userId': user_id,
+                'organizationId': organization_id
+            }
+            
+            variables = {'input': input_data}
+            result = await self.execute_query_with_fallback(client, mutation, variables=variables, timeout=60)
+            
+            if 'errors' in result and 'fallback_used' not in result:
+                return {"error": "Failed to remove user", "details": result['errors']}
+            
+            remove_result = result.get('data', {}).get('removeUser', {})
+            
+            if remove_result.get('errors'):
+                return {"error": "User removal failed", "details": remove_result['errors']}
+            
+            return {
+                'success': True,
+                'removed_user_id': remove_result.get('removedUserId'),
+                'metadata': {
+                    'source': 'nife.io',
+                    'operation': 'remove_user',
+                    'timestamp': datetime.now(timezone.utc).isoformat(),
+                    'user_id': user_id,
+                    'organization_id': organization_id
+                },
+                'message': f'Successfully removed user {user_id} from organization {organization_id}'
+            }
+            
+        except Exception as e:
+            logger.error(f"Error in remove_user: {e}")
+            return {"error": str(e)}
     
     async def handle_unset_secret(self, args):
         """Handle unset_secret tool call"""
@@ -2529,19 +3000,260 @@ class NifeMCPServer:
     
     async def handle_add_certificate(self, args):
         """Handle add_certificate tool call"""
-        return {"error": "add_certificate not yet implemented - use execute_nife_query for custom mutations"}
+        try:
+            access_token = args.get('access_token')
+            if not access_token:
+                return {"error": "Access token is required"}
+            
+            client = NifeGraphQLClient(access_token)
+            app_id = args.get('app_id')
+            hostname = args.get('hostname')
+            cert_type = args.get('type', 'lets_encrypt')
+            certificate = args.get('certificate')
+            private_key = args.get('private_key')
+            
+            mutation = """
+            mutation AddCertificate($input: AddCertificateInput!) {
+                addCertificate(input: $input) {
+                    certificate {
+                        id
+                        hostname
+                        source
+                        configured
+                        certificateAuthority
+                        clientStatus
+                        createdAt
+                    }
+                    errors {
+                        field
+                        message
+                    }
+                }
+            }
+            """
+            
+            input_data = {
+                'appId': app_id,
+                'hostname': hostname,
+                'type': cert_type.upper().replace('_', '')
+            }
+            
+            # For custom certificates
+            if cert_type == 'custom' and certificate and private_key:
+                input_data['certificate'] = certificate
+                input_data['privateKey'] = private_key
+            
+            variables = {'input': input_data}
+            result = await self.execute_query_with_fallback(client, mutation, variables=variables, timeout=120)
+            
+            if 'errors' in result and 'fallback_used' not in result:
+                return {"error": "Failed to add certificate", "details": result['errors']}
+            
+            add_result = result.get('data', {}).get('addCertificate', {})
+            
+            if add_result.get('errors'):
+                return {"error": "Certificate addition failed", "details": add_result['errors']}
+            
+            return {
+                'success': True,
+                'certificate': add_result.get('certificate'),
+                'metadata': {
+                    'source': 'nife.io',
+                    'operation': 'add_certificate',
+                    'timestamp': datetime.now(timezone.utc).isoformat(),
+                    'hostname': hostname,
+                    'type': cert_type
+                },
+                'message': f'Successfully added {cert_type} certificate for {hostname}'
+            }
+            
+        except Exception as e:
+            logger.error(f"Error in add_certificate: {e}")
+            return {"error": str(e)}
     
     async def handle_remove_certificate(self, args):
         """Handle remove_certificate tool call"""
-        return {"error": "remove_certificate not yet implemented - use execute_nife_query for custom mutations"}
+        try:
+            access_token = args.get('access_token')
+            if not access_token:
+                return {"error": "Access token is required"}
+            
+            client = NifeGraphQLClient(access_token)
+            app_id = args.get('app_id')
+            hostname = args.get('hostname')
+            
+            mutation = """
+            mutation RemoveCertificate($input: RemoveCertificateInput!) {
+                removeCertificate(input: $input) {
+                    app {
+                        id
+                        name
+                    }
+                    errors {
+                        field
+                        message
+                    }
+                }
+            }
+            """
+            
+            input_data = {
+                'appId': app_id,
+                'hostname': hostname
+            }
+            
+            variables = {'input': input_data}
+            result = await self.execute_query_with_fallback(client, mutation, variables=variables, timeout=60)
+            
+            if 'errors' in result and 'fallback_used' not in result:
+                return {"error": "Failed to remove certificate", "details": result['errors']}
+            
+            remove_result = result.get('data', {}).get('removeCertificate', {})
+            
+            if remove_result.get('errors'):
+                return {"error": "Certificate removal failed", "details": remove_result['errors']}
+            
+            return {
+                'success': True,
+                'app': remove_result.get('app'),
+                'metadata': {
+                    'source': 'nife.io',
+                    'operation': 'remove_certificate',
+                    'timestamp': datetime.now(timezone.utc).isoformat(),
+                    'hostname': hostname
+                },
+                'message': f'Successfully removed certificate for {hostname}'
+            }
+            
+        except Exception as e:
+            logger.error(f"Error in remove_certificate: {e}")
+            return {"error": str(e)}
     
     async def handle_create_volume(self, args):
         """Handle create_volume tool call"""
-        return {"error": "create_volume not yet implemented - use execute_nife_query for custom mutations"}
+        try:
+            access_token = args.get('access_token')
+            if not access_token:
+                return {"error": "Access token is required"}
+            
+            client = NifeGraphQLClient(access_token)
+            app_id = args.get('app_id')
+            name = args.get('name')
+            size = args.get('size', '10GB')
+            region = args.get('region')
+            
+            mutation = """
+            mutation CreateVolume($input: CreateVolumeInput!) {
+                createVolume(input: $input) {
+                    volume {
+                        id
+                        name
+                        sizeGb
+                        region
+                        status
+                        encrypted
+                        createdAt
+                    }
+                    errors {
+                        field
+                        message
+                    }
+                }
+            }
+            """
+            
+            input_data = {
+                'appId': app_id,
+                'name': name,
+                'size': size
+            }
+            
+            if region:
+                input_data['region'] = region
+            
+            variables = {'input': input_data}
+            result = await self.execute_query_with_fallback(client, mutation, variables=variables, timeout=120)
+            
+            if 'errors' in result and 'fallback_used' not in result:
+                return {"error": "Failed to create volume", "details": result['errors']}
+            
+            create_result = result.get('data', {}).get('createVolume', {})
+            
+            if create_result.get('errors'):
+                return {"error": "Volume creation failed", "details": create_result['errors']}
+            
+            return {
+                'success': True,
+                'volume': create_result.get('volume'),
+                'metadata': {
+                    'source': 'nife.io',
+                    'operation': 'create_volume',
+                    'timestamp': datetime.now(timezone.utc).isoformat(),
+                    'name': name,
+                    'size': size,
+                    'region': region
+                },
+                'message': f'Successfully created volume {name} ({size})'
+            }
+            
+        except Exception as e:
+            logger.error(f"Error in create_volume: {e}")
+            return {"error": str(e)}
     
     async def handle_delete_volume(self, args):
         """Handle delete_volume tool call"""
-        return {"error": "delete_volume not yet implemented - use execute_nife_query for custom mutations"}
+        try:
+            access_token = args.get('access_token')
+            if not access_token:
+                return {"error": "Access token is required"}
+            
+            client = NifeGraphQLClient(access_token)
+            app_id = args.get('app_id')
+            volume_id = args.get('volume_id')
+            
+            mutation = """
+            mutation DeleteVolume($input: DeleteVolumeInput!) {
+                deleteVolume(input: $input) {
+                    deletedVolumeId
+                    errors {
+                        field
+                        message
+                    }
+                }
+            }
+            """
+            
+            input_data = {
+                'appId': app_id,
+                'volumeId': volume_id
+            }
+            
+            variables = {'input': input_data}
+            result = await self.execute_query_with_fallback(client, mutation, variables=variables, timeout=60)
+            
+            if 'errors' in result and 'fallback_used' not in result:
+                return {"error": "Failed to delete volume", "details": result['errors']}
+            
+            delete_result = result.get('data', {}).get('deleteVolume', {})
+            
+            if delete_result.get('errors'):
+                return {"error": "Volume deletion failed", "details": delete_result['errors']}
+            
+            return {
+                'success': True,
+                'deleted_volume_id': delete_result.get('deletedVolumeId'),
+                'metadata': {
+                    'source': 'nife.io',
+                    'operation': 'delete_volume',
+                    'timestamp': datetime.now(timezone.utc).isoformat(),
+                    'volume_id': volume_id
+                },
+                'message': f'Successfully deleted volume {volume_id}'
+            }
+            
+        except Exception as e:
+            logger.error(f"Error in delete_volume: {e}")
+            return {"error": str(e)}
     
     async def handle_update_nife_context(self, args):
         """Handle update_nife_context tool call"""
@@ -2567,13 +3279,13 @@ class NifeMCPServer:
                         },
                         "serverInfo": {
                             "name": "nife-mcp-server",
-                            "version": "2.0.0"
+                            "version": "3.0.0"
                         }
                     }
                 }
             
             elif method == "notifications/initialized":
-                logger.info("Enhanced Nife MCP server initialized successfully")
+                logger.info("Complete Nife MCP server v3.0.0 initialized successfully - 100% feature complete")
                 return None  # No response for notifications
             
             elif method == "tools/list":
@@ -2627,9 +3339,9 @@ class NifeMCPServer:
     
     async def run(self):
         """Main MCP server loop"""
-        logger.info("Starting Enhanced Nife MCP server v2.0.0...")
-        logger.info(f"Available tools: {len(self.tools)}")
-        logger.info("Features: comprehensive queries, mutations, automatic retry, fallback support")
+        logger.info("Starting Complete Nife MCP server v3.0.0...")
+        logger.info(f"Available tools: {len(self.tools)} (100% complete)")
+        logger.info("Features: All queries, all mutations, automatic retry, fallback support, comprehensive error handling")
         
         while True:
             try:
@@ -2674,7 +3386,7 @@ class NifeMCPServer:
                 logger.error(f"Unexpected MCP error: {e}")
                 break
         
-        logger.info("Enhanced Nife MCP server stopped")
+        logger.info("Complete Nife MCP server stopped")
 
 async def main():
     """Main entry point"""
