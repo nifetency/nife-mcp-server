@@ -156,38 +156,67 @@ def get_model_context():
         # Initialize GraphQL client
         client = NifeGraphQLClient(access_token)
         
-        # Updated query based on common GraphQL patterns
-        query = """
-        query GetContext($limit: Int!) {
-            apps(first: $limit) {
-                edges {
-                    node {
-                        id
-                        name
-                        status
-                        description
-                        createdAt
-                        updatedAt
-                        region
-                        environment
-                    }
+        # Try multiple query patterns with fallback
+        # First attempt: Standard nodes pattern (most common)
+        query_v1 = """
+        query GetApps {
+            apps(first: %d) {
+                nodes {
+                    id
+                    name
+                    status
+                    organizationId
+                    createdAt
+                    updatedAt
                 }
-                pageInfo {
-                    hasNextPage
-                    hasPreviousPage
-                    startCursor
-                    endCursor
-                }
-                totalCount
             }
         }
-        """
+        """ % limit
         
-        variables = {
-            'limit': limit
-        }
+        # Try the first query
+        result = client.execute_query(query_v1)
         
-        result = client.execute_query(query, variables)
+        # If first query fails, try alternative structures
+        if 'errors' in result:
+            logger.warning("First query pattern failed, trying alternative...")
+            
+            # Second attempt: Simple list without pagination
+            query_v2 = """
+            query GetApps {
+                apps {
+                    id
+                    name
+                    status
+                    organizationId
+                    createdAt
+                    updatedAt
+                }
+            }
+            """
+            
+            result = client.execute_query(query_v2)
+            
+            # If that fails too, try with organizations query
+            if 'errors' in result:
+                logger.warning("Second query pattern failed, trying organizations...")
+                
+                query_v3 = """
+                query GetContext {
+                    organizations {
+                        nodes {
+                            id
+                            name
+                            slug
+                            type
+                            isActive
+                        }
+                    }
+                }
+                """
+                
+                result = client.execute_query(query_v3)
+        
+        variables = None
         
         if 'errors' in result:
             return jsonify({

@@ -2006,7 +2006,114 @@ class NifeMCPServer:
     
     async def handle_get_volumes(self, args):
         """Handle get_volumes tool call"""
-        return {"error": "get_volumes not yet implemented - use execute_nife_query for custom queries"}
+        try:
+            access_token = args.get('access_token')
+            if not access_token:
+                return {"error": "Access token is required"}
+            
+            client = NifeGraphQLClient(access_token)
+            app_id = args.get('app_id')
+            organization_id = args.get('organization_id')
+            
+            if app_id:
+                query = """
+                query GetAppVolumes($appId: ID!) {
+                    app(id: $appId) {
+                        volumes {
+                            nodes {
+                                id
+                                name
+                                sizeGb
+                                region
+                                status
+                                encrypted
+                                createdAt
+                                attachedToAllocations {
+                                    id
+                                    status
+                                }
+                            }
+                        }
+                    }
+                }
+                """
+                variables = {'appId': app_id}
+            elif organization_id:
+                query = """
+                query GetOrgVolumes($orgId: ID!) {
+                    organization(id: $orgId) {
+                        volumes {
+                            nodes {
+                                id
+                                name
+                                sizeGb
+                                region
+                                status
+                                encrypted
+                                createdAt
+                                app {
+                                    id
+                                    name
+                                }
+                            }
+                        }
+                    }
+                }
+                """
+                variables = {'orgId': organization_id}
+            else:
+                query = """
+                query GetAllVolumes {
+                    volumes {
+                        nodes {
+                            id
+                            name
+                            sizeGb
+                            region
+                            status
+                            encrypted
+                            createdAt
+                            app {
+                                id
+                                name
+                            }
+                        }
+                    }
+                }
+                """
+                variables = {}
+            
+            result = await self.execute_query_with_fallback(client, query, variables=variables)
+            
+            if 'errors' in result and 'fallback_used' not in result:
+                return {"error": "Failed to retrieve volumes", "details": result['errors']}
+            
+            data = result.get('data', {})
+            
+            if app_id:
+                volumes = data.get('app', {}).get('volumes', {}).get('nodes', [])
+            elif organization_id:
+                volumes = data.get('organization', {}).get('volumes', {}).get('nodes', [])
+            else:
+                volumes = data.get('volumes', {}).get('nodes', [])
+            
+            return {
+                'volumes': volumes,
+                'total_count': len(volumes),
+                'filters': {
+                    'app_id': app_id,
+                    'organization_id': organization_id
+                },
+                'metadata': {
+                    'source': 'nife.io',
+                    'operation': 'get_volumes',
+                    'timestamp': datetime.now(timezone.utc).isoformat()
+                }
+            }
+            
+        except Exception as e:
+            logger.error(f"Error in get_volumes: {e}")
+            return {"error": str(e)}
     
     async def handle_get_certificates(self, args):
         """Handle get_certificates tool call"""
@@ -2144,15 +2251,201 @@ class NifeMCPServer:
     # Placeholder mutation handlers
     async def handle_update_app(self, args):
         """Handle update_app tool call"""
-        return {"error": "update_app not yet implemented - use execute_nife_query for custom mutations"}
+        try:
+            access_token = args.get('access_token')
+            if not access_token:
+                return {"error": "Access token is required"}
+            
+            client = NifeGraphQLClient(access_token)
+            app_id = args.get('app_id')
+            name = args.get('name')
+            image = args.get('image')
+            env_vars = args.get('env_vars')
+            regions = args.get('regions')
+            
+            mutation = """
+            mutation UpdateApp($input: UpdateAppInput!) {
+                updateApp(input: $input) {
+                    app {
+                        id
+                        name
+                        status
+                        imageName
+                        regions {
+                            code
+                            name
+                        }
+                        updatedAt
+                    }
+                    errors {
+                        field
+                        message
+                    }
+                }
+            }
+            """
+            
+            input_data = {'appId': app_id}
+            
+            if name:
+                input_data['name'] = name
+            if image:
+                input_data['image'] = image
+            if env_vars:
+                input_data['envVars'] = env_vars
+            if regions:
+                input_data['regions'] = regions
+            
+            variables = {'input': input_data}
+            result = await self.execute_query_with_fallback(client, mutation, variables=variables, timeout=60)
+            
+            if 'errors' in result and 'fallback_used' not in result:
+                return {"error": "Failed to update app", "details": result['errors']}
+            
+            update_result = result.get('data', {}).get('updateApp', {})
+            
+            if update_result.get('errors'):
+                return {"error": "App update failed", "details": update_result['errors']}
+            
+            return {
+                'success': True,
+                'app': update_result.get('app'),
+                'metadata': {
+                    'source': 'nife.io',
+                    'operation': 'update_app',
+                    'timestamp': datetime.now(timezone.utc).isoformat(),
+                    'updates': {
+                        'name': name is not None,
+                        'image': image is not None,
+                        'env_vars': env_vars is not None,
+                        'regions': regions is not None
+                    }
+                }
+            }
+            
+        except Exception as e:
+            logger.error(f"Error in update_app: {e}")
+            return {"error": str(e)}
     
     async def handle_delete_app(self, args):
         """Handle delete_app tool call"""
-        return {"error": "delete_app not yet implemented - use execute_nife_query for custom mutations"}
+        try:
+            access_token = args.get('access_token')
+            if not access_token:
+                return {"error": "Access token is required"}
+            
+            client = NifeGraphQLClient(access_token)
+            app_id = args.get('app_id')
+            force = args.get('force', False)
+            
+            mutation = """
+            mutation DeleteApp($input: DeleteAppInput!) {
+                deleteApp(input: $input) {
+                    deletedAppId
+                    errors {
+                        field
+                        message
+                    }
+                }
+            }
+            """
+            
+            input_data = {
+                'appId': app_id,
+                'force': force
+            }
+            
+            variables = {'input': input_data}
+            result = await self.execute_query_with_fallback(client, mutation, variables=variables, timeout=60)
+            
+            if 'errors' in result and 'fallback_used' not in result:
+                return {"error": "Failed to delete app", "details": result['errors']}
+            
+            delete_result = result.get('data', {}).get('deleteApp', {})
+            
+            if delete_result.get('errors'):
+                return {"error": "App deletion failed", "details": delete_result['errors']}
+            
+            return {
+                'success': True,
+                'deleted_app_id': delete_result.get('deletedAppId'),
+                'metadata': {
+                    'source': 'nife.io',
+                    'operation': 'delete_app',
+                    'timestamp': datetime.now(timezone.utc).isoformat(),
+                    'forced': force
+                },
+                'message': f'Successfully deleted app {app_id}'
+            }
+            
+        except Exception as e:
+            logger.error(f"Error in delete_app: {e}")
+            return {"error": str(e)}
     
     async def handle_restart_app(self, args):
         """Handle restart_app tool call"""
-        return {"error": "restart_app not yet implemented - use execute_nife_query for custom mutations"}
+        try:
+            access_token = args.get('access_token')
+            if not access_token:
+                return {"error": "Access token is required"}
+            
+            client = NifeGraphQLClient(access_token)
+            app_id = args.get('app_id')
+            region = args.get('region')
+            
+            mutation = """
+            mutation RestartApp($input: RestartAppInput!) {
+                restartApp(input: $input) {
+                    app {
+                        id
+                        name
+                        status
+                        allocations {
+                            id
+                            status
+                            region
+                            restartedAt
+                        }
+                    }
+                    errors {
+                        field
+                        message
+                    }
+                }
+            }
+            """
+            
+            input_data = {'appId': app_id}
+            
+            if region:
+                input_data['region'] = region
+            
+            variables = {'input': input_data}
+            result = await self.execute_query_with_fallback(client, mutation, variables=variables, timeout=120)
+            
+            if 'errors' in result and 'fallback_used' not in result:
+                return {"error": "Failed to restart app", "details": result['errors']}
+            
+            restart_result = result.get('data', {}).get('restartApp', {})
+            
+            if restart_result.get('errors'):
+                return {"error": "App restart failed", "details": restart_result['errors']}
+            
+            return {
+                'success': True,
+                'app': restart_result.get('app'),
+                'metadata': {
+                    'source': 'nife.io',
+                    'operation': 'restart_app',
+                    'timestamp': datetime.now(timezone.utc).isoformat(),
+                    'region': region or 'all'
+                },
+                'message': f'Successfully restarted app {app_id}' + (f' in region {region}' if region else '')
+            }
+            
+        except Exception as e:
+            logger.error(f"Error in restart_app: {e}")
+            return {"error": str(e)}
     
     async def handle_create_organization(self, args):
         """Handle create_organization tool call"""
@@ -2176,7 +2469,63 @@ class NifeMCPServer:
     
     async def handle_unset_secret(self, args):
         """Handle unset_secret tool call"""
-        return {"error": "unset_secret not yet implemented - use execute_nife_query for custom mutations"}
+        try:
+            access_token = args.get('access_token')
+            if not access_token:
+                return {"error": "Access token is required"}
+            
+            client = NifeGraphQLClient(access_token)
+            app_id = args.get('app_id')
+            name = args.get('name')
+            
+            mutation = """
+            mutation UnsetSecret($input: UnsetSecretInput!) {
+                unsetSecret(input: $input) {
+                    app {
+                        id
+                        secrets {
+                            name
+                        }
+                    }
+                    errors {
+                        field
+                        message
+                    }
+                }
+            }
+            """
+            
+            input_data = {
+                'appId': app_id,
+                'name': name
+            }
+            
+            variables = {'input': input_data}
+            result = await self.execute_query_with_fallback(client, mutation, variables=variables, timeout=30)
+            
+            if 'errors' in result and 'fallback_used' not in result:
+                return {"error": "Failed to unset secret", "details": result['errors']}
+            
+            unset_result = result.get('data', {}).get('unsetSecret', {})
+            
+            if unset_result.get('errors'):
+                return {"error": "Secret removal failed", "details": unset_result['errors']}
+            
+            return {
+                'success': True,
+                'app': unset_result.get('app'),
+                'metadata': {
+                    'source': 'nife.io',
+                    'operation': 'unset_secret',
+                    'timestamp': datetime.now(timezone.utc).isoformat(),
+                    'secret_name': name
+                },
+                'message': f'Successfully removed secret {name} from app {app_id}'
+            }
+            
+        except Exception as e:
+            logger.error(f"Error in unset_secret: {e}")
+            return {"error": str(e)}
     
     async def handle_add_certificate(self, args):
         """Handle add_certificate tool call"""
