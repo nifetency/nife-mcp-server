@@ -1,4 +1,4 @@
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, jsonify, request, g
 import requests
 import json
 import os
@@ -6,6 +6,7 @@ import logging
 from datetime import datetime, timezone
 from functools import wraps
 import time
+from typing import Tuple, Union, Dict, Any
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -107,7 +108,7 @@ def require_auth(f):
             }), 401
         
         # Store token in request context for use in the route
-        request.access_token = access_token
+        g.access_token = access_token
         return f(*args, **kwargs)
     
     return decorated_function
@@ -116,7 +117,7 @@ def get_current_timestamp():
     """Get current timestamp in ISO format"""
     return datetime.now(timezone.utc).isoformat()
 
-def validate_json_request():
+def validate_json_request() -> Tuple[bool, Union[str, Dict[str, Any]]]:
     """Validate that request contains valid JSON"""
     if not request.is_json:
         return False, "Request must be JSON"
@@ -254,12 +255,15 @@ def update_model_context():
     """Update model context via Nife.io GraphQL API"""
     try:
         # Validate JSON request
-        is_valid, data = validate_json_request()
+        is_valid, result = validate_json_request()
         if not is_valid:
-            return jsonify({'error': data}), 400
+            return jsonify({'error': result}), 400
+        
+        # Type assertion: after validation, result is a dict
+        data: Dict[str, Any] = result  # type: ignore
         
         # Initialize GraphQL client
-        client = NifeGraphQLClient(request.access_token)
+        client = NifeGraphQLClient(g.access_token)
         
         # Example mutation - adapt based on actual schema
         mutation = """
@@ -490,9 +494,12 @@ def execute_custom_query():
     """Execute a custom GraphQL query against Nife.io API"""
     try:
         # Validate JSON request
-        is_valid, data = validate_json_request()
+        is_valid, result = validate_json_request()
         if not is_valid:
-            return jsonify({'error': data}), 400
+            return jsonify({'error': result}), 400
+        
+        # Type assertion: after validation, result is a dict
+        data: Dict[str, Any] = result  # type: ignore
         
         if 'query' not in data:
             return jsonify({'error': 'GraphQL query is required'}), 400
@@ -513,7 +520,7 @@ def execute_custom_query():
             return jsonify({'error': 'Query cannot be empty'}), 400
         
         # Initialize GraphQL client
-        client = NifeGraphQLClient(request.access_token)
+        client = NifeGraphQLClient(g.access_token)
         
         result = client.execute_query(query, variables, timeout)
         

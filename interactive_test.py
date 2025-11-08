@@ -6,6 +6,7 @@ This script connects to the NIFE MCP server and lets you interact with it.
 import json
 import sys
 import os
+from typing import Tuple, Optional, List, Any
 
 # Add the src directory to the path
 sys.path.insert(0, '/Users/rentsher/nife-mcp-server/src')
@@ -14,7 +15,7 @@ sys.path.insert(0, '/Users/rentsher/nife-mcp-server/src')
 from nife_mcp_server.main import NifeMCPServer
 import asyncio
 
-async def test_mcp_connection():
+async def test_mcp_connection() -> Tuple[Optional[Any], List[Any]]:
     """Test MCP server connection and available tools"""
     
     print("=" * 70)
@@ -44,8 +45,13 @@ async def test_mcp_connection():
     }
     
     init_response = await server.handle_request(init_request)
+    if not init_response or 'result' not in init_response:
+        print("   ✗ Initialize failed")
+        return None, []
+    
     print(f"   ✓ Initialize successful")
-    print(f"   Server: {init_response['result']['serverInfo']['name']} v{init_response['result']['serverInfo']['version']}")
+    server_info = init_response.get('result', {}).get('serverInfo', {})
+    print(f"   Server: {server_info.get('name', 'Unknown')} v{server_info.get('version', 'Unknown')}")
     
     # Test list tools
     print("\n3. Listing Available Tools...")
@@ -57,7 +63,11 @@ async def test_mcp_connection():
     }
     
     list_response = await server.handle_request(list_request)
-    tools = list_response['result']['tools']
+    if not list_response or 'result' not in list_response:
+        print("   ✗ Failed to list tools")
+        return None, []
+    
+    tools = list_response.get('result', {}).get('tools', [])
     
     print(f"   ✓ Found {len(tools)} tools\n")
     
@@ -95,7 +105,16 @@ async def test_mcp_connection():
     }
     
     health_response = await server.handle_request(health_request)
-    health_text = health_response['result']['content'][0]['text']
+    if not health_response or 'result' not in health_response:
+        print("   ✗ Health check failed")
+        return server, tools
+    
+    content = health_response.get('result', {}).get('content', [])
+    if not content:
+        print("   ✗ No health check content returned")
+        return server, tools
+    
+    health_text = content[0].get('text', '{}')
     health_data = json.loads(health_text)
     
     print(f"   ✓ Health Status: {health_data['status']}")
@@ -188,7 +207,16 @@ async def interactive_test(server, tools):
         
         try:
             response = await server.handle_request(request)
-            result_text = response['result']['content'][0]['text']
+            if not response or 'result' not in response:
+                print(f"\n✗ Error: Invalid response")
+                return
+            
+            content = response.get('result', {}).get('content', [])
+            if not content:
+                print(f"\n✗ Error: No content in response")
+                return
+            
+            result_text = content[0].get('text', '{}')
             result_data = json.loads(result_text)
             
             print("\n✓ Result:")
@@ -202,6 +230,11 @@ async def interactive_test(server, tools):
 if __name__ == "__main__":
     async def main():
         server, tools = await test_mcp_connection()
+        
+        # Check if initialization was successful
+        if server is None:
+            print("\n⚠️  Server initialization failed")
+            return
         
         # Check if we should do interactive testing
         if os.getenv("NIFE_ACCESS_TOKEN"):
