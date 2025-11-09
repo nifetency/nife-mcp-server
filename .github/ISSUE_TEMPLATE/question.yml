@@ -1,0 +1,74 @@
+name: Question
+description: Ask a question about usage or functionality
+title: "[Question]: "
+labels: ["question"]
+assignees: []
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for your question! 🤔
+        
+        Before asking, please check:
+        - [README.md](../README.md)
+        - [QUICKSTART.md](../QUICKSTART.md)
+        - [Existing issues](../../issues?q=is%3Aissue)
+
+  - type: textarea
+    id: question
+    attributes:
+      label: Your Question
+      description: What would you like to know?
+      placeholder: How do I...?
+    validations:
+      required: true
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Context
+      description: What are you trying to accomplish?
+      placeholder: I'm trying to...
+    validations:
+      required: true
+
+  - type: textarea
+    id: tried
+    attributes:
+      label: What Have You Tried?
+      description: What have you already attempted?
+      placeholder: I tried...
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Question Category
+      description: Which area is your question about?
+      options:
+        - Installation
+        - Configuration
+        - Usage with Claude Desktop
+        - GraphQL queries
+        - Authentication
+        - Troubleshooting
+        - Other
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: Which version are you using?
+      placeholder: "1.0.0"
+
+  - type: checkboxes
+    id: terms
+    attributes:
+      label: Checklist
+      options:
+        - label: I have checked the documentation
+          required: true
+        - label: I have searched existing issues
+          required: true

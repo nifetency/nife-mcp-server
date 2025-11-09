@@ -1,15 +1,19 @@
 Metadata-Version: 2.4
 Name: nife-mcp-server
-Version: 3.0.0
-Summary: MCP server for Nife.io cloud platform management
-Author-email: "Nife.io Team" <support@nife.io>
+Version: 1.0.0
+Summary: Model Context Protocol server for Nife.io GraphQL API
+Home-page: https://github.com/nife-io/nife-mcp-server
+Author: Nife Team
+Author-email: Nife Team <support@nife.io>
 License: MIT
 Project-URL: Homepage, https://github.com/nife-io/nife-mcp-server
+Project-URL: Documentation, https://github.com/nife-io/nife-mcp-server#readme
 Project-URL: Repository, https://github.com/nife-io/nife-mcp-server
-Project-URL: Documentation, https://docs.nife.io/mcp
-Project-URL: Bug Reports, https://github.com/nife-io/nife-mcp-server/issues
+Project-URL: Issues, https://github.com/nife-io/nife-mcp-server/issues
+Keywords: mcp,model-context-protocol,nife,graphql,ai,claude
 Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
@@ -19,9 +23,14 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Requires-Python: >=3.8
 Description-Content-Type: text/markdown
-Requires-Dist: mcp>=0.1.0
-Requires-Dist: httpx>=0.24.0
-Requires-Dist: pydantic>=2.0.0
+License-File: LICENSE
+Requires-Dist: flask>=2.0.0
+Requires-Dist: flask-cors>=3.0.0
+Requires-Dist: requests>=2.25.0
+Dynamic: author
+Dynamic: home-page
+Dynamic: license-file
+Dynamic: requires-python
 
 # Nife.io MCP Server
 

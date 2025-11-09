@@ -1,48 +1,47 @@
 [build-system]
-requires = ["setuptools>=61.0", "wheel"]
+requires = ["setuptools>=45", "wheel", "setuptools_scm[toml]>=6.2"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "nife-mcp-server"
-version = "3.0.0"
-description = "MCP server for Nife.io cloud platform management"
-authors = [
-    {name = "Nife.io Team", email = "support@nife.io"}
-]
-license = {text = "MIT"}
+version = "1.0.0"
+description = "Model Context Protocol server for Nife.io GraphQL API"
 readme = "README.md"
 requires-python = ">=3.8"
+license = {text = "MIT"}
+keywords = ["mcp", "model-context-protocol", "nife", "graphql", "ai", "claude"]
+authors = [
+  {name = "Nife Team", email = "support@nife.io"}
+]
 classifiers = [
-    "Development Status :: 4 - Beta",
-    "Intended Audience :: Developers",
-    "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.8",
-    "Programming Language :: Python :: 3.9",
-    "Programming Language :: Python :: 3.10",
-    "Programming Language :: Python :: 3.11",
-    "Programming Language :: Python :: 3.12",
-    "Programming Language :: Python :: 3.13",
+  "Development Status :: 4 - Beta",
+  "Intended Audience :: Developers",
+  "License :: OSI Approved :: MIT License",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.8",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
 ]
 dependencies = [
-    "mcp>=0.1.0",
-    "httpx>=0.24.0",
-    "pydantic>=2.0.0",
+  "flask>=2.0.0",
+  "flask-cors>=3.0.0",
+  "requests>=2.25.0",
 ]
 
 [project.urls]
 Homepage = "https://github.com/nife-io/nife-mcp-server"
+Documentation = "https://github.com/nife-io/nife-mcp-server#readme"
 Repository = "https://github.com/nife-io/nife-mcp-server"
-Documentation = "https://docs.nife.io/mcp"
-"Bug Reports" = "https://github.com/nife-io/nife-mcp-server/issues"
+Issues = "https://github.com/nife-io/nife-mcp-server/issues"
 
 [project.scripts]
-nife-mcp-server = "nife_mcp_server.__main__:main"
+nife-mcp-server = "nife_mcp_server.intelligent_main:main"
 
-# Correct package configuration for src layout
+[tool.setuptools]
+package-dir = {"" = "src"}
+
 [tool.setuptools.packages.find]
 where = ["src"]
-include = ["nife_mcp_server*"]
-
-# Include static files and database
-[tool.setuptools.package-data]
-nife_mcp_server = ["static/*", "database/*"]

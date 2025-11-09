@@ -1,8 +1,0 @@
-README.md
-pyproject.toml
-nife_mcp_server.egg-info/PKG-INFO
-nife_mcp_server.egg-info/SOURCES.txt
-nife_mcp_server.egg-info/dependency_links.txt
-nife_mcp_server.egg-info/entry_points.txt
-nife_mcp_server.egg-info/requires.txt
-nife_mcp_server.egg-info/top_level.txt
