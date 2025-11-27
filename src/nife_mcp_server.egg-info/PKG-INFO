@@ -34,169 +34,282 @@ Dynamic: requires-python
 
 # Nife.io MCP Server
 
-A Model Context Protocol (MCP) server that interfaces with the Nife.io GraphQL API.
+<div align="center">
 
-## Overview
+[![PyPI version](https://badge.fury.io/py/nife-mcp-server.svg)](https://badge.fury.io/py/nife-mcp-server)
+[![npm version](https://badge.fury.io/js/@nife%2Fmcp-server.svg)](https://badge.fury.io/js/@nife%2Fmcp-server)
+[![CI](https://github.com/nife-io/nife-mcp-server/actions/workflows/ci.yml/badge.svg)](https://github.com/nife-io/nife-mcp-server/actions/workflows/ci.yml)
+[![Python](https://img.shields.io/badge/python-3.8%2B-blue.svg)](https://www.python.org/downloads/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Downloads](https://pepy.tech/badge/nife-mcp-server)](https://pepy.tech/project/nife-mcp-server)
+[![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 
-This MCP server provides a standardized interface to interact with Nife.io's GraphQL API, allowing you to:
+**A Model Context Protocol (MCP) server that interfaces with the Nife.io GraphQL API**
 
-- Retrieve model context data from Nife.io
-- Update model context via GraphQL mutations
-- Execute custom GraphQL queries
-- Introspect the Nife.io GraphQL schema
-- Health check endpoints
+[Installation](#-installation) •
+[Quick Start](#-quick-start) •
+[Documentation](#-documentation) •
+[Contributing](#-contributing)
 
-## Features
+</div>
 
-- **GraphQL Integration**: Full integration with Nife.io's GraphQL API
-- **Authentication Support**: Bearer token authentication
-- **CORS Enabled**: Cross-origin requests supported
-- **Error Handling**: Comprehensive error handling and validation
-- **Schema Introspection**: Retrieve and explore the GraphQL schema
-- **Custom Queries**: Execute arbitrary GraphQL queries and mutations
+---
 
-## API Endpoints
+## 🌟 Overview
 
-### MCP Endpoints
+Nife MCP Server provides a standardized interface to interact with Nife.io's GraphQL API through the Model Context Protocol, enabling seamless integration with Claude Desktop and other MCP-compatible applications.
 
-- `GET /api/mcp/context` - Get model context from Nife.io
-- `POST /api/mcp/context` - Update model context via Nife.io
-- `GET /api/mcp/schema` - Get the GraphQL schema from Nife.io
-- `POST /api/mcp/query` - Execute custom GraphQL queries
-- `GET /api/mcp/health` - Health check endpoint
+### ✨ Key Features
 
-### Authentication
+- 🧠 **Intelligent Schema Discovery** - Automatically discovers and adapts to the GraphQL schema
+- 🔧 **Dynamic Tool Generation** - Creates MCP tools on-the-fly from schema
+- 🚀 **Zero Configuration** - Works out of the box with minimal setup
+- 🔒 **Secure Authentication** - Bearer token support with flexible configuration
+- 📦 **Multiple Install Methods** - PyPI, NPM, or GitHub
+- 🌐 **Cross-Platform** - Works on macOS, Linux, and Windows
+- ⚡ **Production Ready** - Comprehensive error handling and logging
 
-The server supports authentication via:
+## 📦 Installation
 
-1. **Authorization Header**: Include `Authorization: Bearer <token>` in your requests
-2. **Environment Variable**: Set `NIFE_ACCESS_TOKEN` environment variable
+### Option 1: PyPI (Recommended for Python users)
 
-To obtain an access token, use the Nife CLI:
+```bash
+pip install nife-mcp-server
+```
+
+### Option 2: NPM (Best for Claude Desktop)
+
+```bash
+npx @nife/mcp-server
+```
+
+### Option 3: From Source
+
+```bash
+git clone https://github.com/nife-io/nife-mcp-server.git
+cd nife-mcp-server
+pip install -r requirements.txt
+```
+
+## 🚀 Quick Start
+
+### 1. Get Your Access Token
+
 ```bash
 nifectl auth login
 nifectl auth token
 ```
 
-## Installation
+### 2. Configure Claude Desktop
 
-1. Clone or download the project
-2. Navigate to the project directory:
-   ```bash
-   cd nife-mcp-server
-   ```
-3. Activate the virtual environment:
-   ```bash
-   source venv/bin/activate
-   ```
-4. Install dependencies (already installed in template):
-   ```bash
-   pip install -r requirements.txt
-   ```
+Add to your Claude Desktop configuration:
 
-## Usage
+```json
+{
+  "mcpServers": {
+    "nife": {
+      "command": "npx",
+      "args": ["-y", "@nife/mcp-server"],
+      "env": {
+        "NIFE_ACCESS_TOKEN": "your_token_here"
+      }
+    }
+  }
+}
+```
+
+### 3. Restart Claude Desktop
+
+Your Nife.io integration is now active! 🎉
+
+## 📚 Documentation
+
+- [Quick Start Guide](QUICKSTART.md) - Get started in 5 minutes
+- [API Documentation](ENDPOINT_GUIDE.md) - Complete API reference
+- [Release Guide](RELEASE_GUIDE.md) - For contributors and maintainers
+- [Contributing](CONTRIBUTING.md) - How to contribute
+
+## 🎯 Usage
 
 ### Starting the Server
 
 ```bash
-cd nife-mcp-server
-source venv/bin/activate
-python src/main.py
+# If installed via pip
+nife-mcp-server
+
+# If running from source
+python -m nife_mcp_server.intelligent_main
 ```
 
 The server will start on `http://0.0.0.0:5000`
 
 ### Environment Variables
 
-- `NIFE_ACCESS_TOKEN`: Your Nife.io access token (optional if using Authorization header)
+- `NIFE_ACCESS_TOKEN` - Your Nife.io access token
+- `NIFE_API_ENDPOINT` - Custom GraphQL endpoint (optional)
 
-### Example Requests
+### Example Usage with Claude
 
-#### Get Model Context
-```bash
-curl -X GET "http://localhost:5000/api/mcp/context?type=general&limit=10" \
-  -H "Authorization: Bearer YOUR_TOKEN"
+Once configured, you can ask Claude:
+
+```
+"List all my applications in Nife.io"
+"Show me the status of my deployments"
+"Create a new application called 'my-app'"
 ```
 
-#### Execute Custom Query
-```bash
-curl -X POST "http://localhost:5000/api/mcp/query" \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer YOUR_TOKEN" \
-  -d '{
-    "query": "query { apps { id name status } }",
-    "variables": {}
-  }'
+## 🏗️ Architecture
+
+```
+┌─────────────────┐
+│  Claude Desktop │
+└────────┬────────┘
+         │ MCP Protocol
+┌────────▼────────┐
+│  Nife MCP Server│
+└────────┬────────┘
+         │ GraphQL
+┌────────▼────────┐
+│   Nife.io API   │
+└─────────────────┘
 ```
 
-#### Get Schema
+### Core Components
+
+- **Schema Manager** - Intelligent GraphQL schema introspection
+- **Tool Generator** - Dynamic MCP tool creation
+- **Query Builder** - Smart query construction
+- **Authentication** - Secure token management
+
+## 🔌 API Endpoints
+
+### MCP Endpoints
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/mcp/context` | GET | Retrieve model context |
+| `/api/mcp/context` | POST | Update model context |
+| `/api/mcp/schema` | GET | Get GraphQL schema |
+| `/api/mcp/query` | POST | Execute custom queries |
+| `/api/mcp/health` | GET | Health check |
+
+### GraphQL Integration
+
+The server provides full access to Nife.io's GraphQL API:
+
+- ✅ Query all resources (apps, deployments, etc.)
+- ✅ Execute mutations (create, update, delete)
+- ✅ Custom query execution
+- ✅ Schema introspection
+
+## 🛠️ Development
+
+### Setup Development Environment
+
 ```bash
-curl -X GET "http://localhost:5000/api/mcp/schema" \
-  -H "Authorization: Bearer YOUR_TOKEN"
+# Clone the repository
+git clone https://github.com/nife-io/nife-mcp-server.git
+cd nife-mcp-server
+
+# Create virtual environment
+python -m venv .venv
+source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+
+# Install dependencies
+pip install -r requirements.txt
+pip install -e .  # Install in editable mode
+
+# Run the server
+python -m nife_mcp_server.intelligent_main
 ```
 
-#### Health Check
-```bash
-curl -X GET "http://localhost:5000/api/mcp/health"
-```
-
-## Project Structure
+### Project Structure
 
 ```
 nife-mcp-server/
-├── venv/                   # Virtual environment
 ├── src/
-│   ├── models/            # Database models
-│   ├── routes/
-│   │   ├── user.py       # User routes (template)
-│   │   └── mcp.py        # MCP server routes
-│   ├── static/           # Static files
-│   ├── main.py           # Main Flask application
-│   └── database/         # SQLite database
-├── requirements.txt       # Python dependencies
-└── README.md             # This file
+│   └── nife_mcp_server/
+│       ├── intelligent_main.py  # Main server logic
+│       ├── schema_manager.py    # GraphQL schema handling
+│       └── routes/
+│           └── mcp.py          # MCP route handlers
+├── tests/                      # Test suite
+├── docs/                       # Documentation
+└── bin/                        # Executable scripts
 ```
 
-## Development
+### Running Tests
 
-### Adding New Endpoints
+```bash
+pytest
+pytest --cov=nife_mcp_server  # With coverage
+```
 
-1. Add new routes to `src/routes/mcp.py`
-2. Update the health check endpoint to include new endpoints
-3. Test the new functionality
+## 🤝 Contributing
 
-### GraphQL Client
+We love contributions! Please see our [Contributing Guide](CONTRIBUTING.md) for details.
 
-The `NifeGraphQLClient` class in `src/routes/mcp.py` handles all GraphQL communication with Nife.io. It includes:
+### Ways to Contribute
 
-- Automatic authentication header handling
-- Error handling for network requests
-- JSON payload formatting
+- 🐛 Report bugs
+- 💡 Suggest features
+- 📝 Improve documentation
+- 💻 Submit pull requests
 
-### Error Handling
+### Development Process
 
-The server includes comprehensive error handling:
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Add tests
+5. Submit a pull request
 
-- Network request failures
-- GraphQL query/mutation errors
-- Authentication errors
-- Validation errors
+## 📊 Stats
 
-## Deployment
+![GitHub stars](https://img.shields.io/github/stars/nife-io/nife-mcp-server?style=social)
+![GitHub forks](https://img.shields.io/github/forks/nife-io/nife-mcp-server?style=social)
+![GitHub issues](https://img.shields.io/github/issues/nife-io/nife-mcp-server)
+![GitHub pull requests](https://img.shields.io/github/issues-pr/nife-io/nife-mcp-server)
 
-To deploy this server:
+## 📄 License
 
-1. Ensure all dependencies are in `requirements.txt`
-2. Set the `NIFE_ACCESS_TOKEN` environment variable
-3. Deploy using your preferred method (Docker, cloud platforms, etc.)
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-## Notes
+## 🙏 Acknowledgments
 
-- The GraphQL queries and mutations in the code are placeholders and need to be updated based on the actual Nife.io GraphQL schema
-- Authentication tokens can be obtained using the Nife CLI (`nifectl auth token`)
-- The server listens on `0.0.0.0:5000` to allow external access during deployment
+- Built for the [Model Context Protocol](https://modelcontextprotocol.io/)
+- Powered by [Nife.io](https://nife.io)
+- Designed for [Claude Desktop](https://claude.ai/desktop)
 
-## License
+## 📞 Support
 
-This project is provided as-is for interfacing with the Nife.io GraphQL API.
+- 📧 Email: support@nife.io
+- 🐛 Issues: [GitHub Issues](https://github.com/nife-io/nife-mcp-server/issues)
+- 💬 Discussions: [GitHub Discussions](https://github.com/nife-io/nife-mcp-server/discussions)
+- 📖 Documentation: [Full Docs](https://github.com/nife-io/nife-mcp-server#readme)
 
+## 🗺️ Roadmap
+
+- [ ] WebSocket support for real-time updates
+- [ ] GraphQL subscriptions
+- [ ] Enhanced caching layer
+- [ ] Query batching
+- [ ] Metrics and monitoring
+- [ ] Docker Compose examples
+- [ ] Kubernetes manifests
+
+## ⭐ Star History
+
+If you find this project useful, please consider giving it a star!
+
+[![Star History Chart](https://api.star-history.com/svg?repos=nife-io/nife-mcp-server&type=Date)](https://star-history.com/#nife-io/nife-mcp-server&Date)
+
+---
+
+<div align="center">
+
+**Made with ❤️ by the Nife.io team**
+
+[Website](https://nife.io) • [Documentation](https://docs.nife.io) • [Blog](https://blog.nife.io)
+
+</div>
