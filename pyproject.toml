@@ -26,9 +26,11 @@ classifiers = [
   "Programming Language :: Python :: 3.13",
 ]
 dependencies = [
+  "requests>=2.25.0",
+  # Flask is only required if running the optional REST API (routes/mcp.py)
+  # Remove the lines below if you only use the MCP stdio server.
   "flask>=2.0.0",
   "flask-cors>=3.0.0",
-  "requests>=2.25.0",
 ]
 
 [project.urls]
@@ -38,7 +40,7 @@ Repository = "https://github.com/nife-io/nife-mcp-server"
 Issues = "https://github.com/nife-io/nife-mcp-server/issues"
 
 [project.scripts]
-nife-mcp-server = "nife_mcp_server.intelligent_main:main"
+nife-mcp-server = "nife_mcp_server.intelligent_main:run"
 
 [tool.setuptools]
 package-dir = {"" = "src"}

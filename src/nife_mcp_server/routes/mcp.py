@@ -14,80 +14,9 @@ logger = logging.getLogger(__name__)
 
 mcp_bp = Blueprint('mcp', __name__)
 
-# Nife.io GraphQL API endpoint
-NIFE_GRAPHQL_ENDPOINT = "https://api.nife.io/graphql"
-
-class NifeGraphQLClient:
-    def __init__(self, access_token=None):
-        self.access_token = access_token
-        self.endpoint = NIFE_GRAPHQL_ENDPOINT
-    
-    def execute_query(self, query, variables=None, timeout=30):
-        """Execute a GraphQL query against the Nife.io API"""
-        headers = {
-            'Content-Type': 'application/json',
-            'User-Agent': 'nife-mcp-server/1.0.0'
-        }
-        
-        # Add authorization header if token is provided
-        if self.access_token:
-            headers['Authorization'] = f'Bearer {self.access_token}'
-        
-        payload = {
-            'query': query
-        }
-        
-        if variables:
-            payload['variables'] = variables
-        
-        start_time = time.time()
-        
-        try:
-            logger.info(f"Executing GraphQL query: {query[:100]}...")
-            response = requests.post(
-                self.endpoint,
-                headers=headers,
-                json=payload,
-                timeout=timeout
-            )
-            
-            elapsed_time = time.time() - start_time
-            logger.info(f"GraphQL query completed in {elapsed_time:.2f}s")
-            
-            response.raise_for_status()
-            result = response.json()
-            
-            # Log errors if they exist
-            if 'errors' in result:
-                logger.error(f"GraphQL errors: {result['errors']}")
-            
-            return result
-            
-        except requests.exceptions.Timeout:
-            logger.error(f"GraphQL query timeout after {timeout}s")
-            return {
-                'errors': [{'message': f'Request timeout after {timeout} seconds'}]
-            }
-        except requests.exceptions.ConnectionError:
-            logger.error("Connection error to Nife.io API")
-            return {
-                'errors': [{'message': 'Connection error to Nife.io API'}]
-            }
-        except requests.exceptions.HTTPError as e:
-            logger.error(f"HTTP error: {e}")
-            return {
-                'errors': [{'message': f'HTTP error: {str(e)}'}]
-            }
-        except requests.exceptions.RequestException as e:
-            logger.error(f"Request failed: {e}")
-            return {
-                'errors': [{'message': f'Request failed: {str(e)}'}]
-            }
-        except json.JSONDecodeError:
-            logger.error("Invalid JSON response from API")
-            return {
-                'errors': [{'message': 'Invalid JSON response from API'}]
-            }
+# Re-export NifeGraphQLClient from the dedicated client module so any
+# existing code that imports it from here continues to work.
+from nife_mcp_server.client import NifeGraphQLClient  # noqa: E402
 
 def require_auth(f):
     """Decorator to require authentication"""

@@ -3,12 +3,21 @@
 Intelligent Schema Manager for Nife.io GraphQL API
 Automatically discovers and generates tools from GraphQL schema
 """
+import json
 import logging
+import os
+import time
 import requests
+from pathlib import Path
 from typing import Dict, List, Optional, Any
 from datetime import datetime, timezone
 
 logger = logging.getLogger(__name__)
+
+# Schema cache location and TTL (24 hours)
+CACHE_DIR = Path.home() / ".nife"
+CACHE_FILE = CACHE_DIR / "schema_cache.json"
+CACHE_TTL_SECONDS = 86400  # 24 hours
 
 class SchemaManager:
     """Manages GraphQL schema introspection and intelligent query building"""
@@ -21,9 +30,56 @@ class SchemaManager:
         self.mutations_cache: Dict[str, Dict] = {}
         self.types_cache: Dict[str, Dict] = {}
         self.schema_loaded = False
+
+    # ------------------------------------------------------------------
+    # Schema caching
+    # ------------------------------------------------------------------
+
+    def _load_cached_schema(self) -> bool:
+        """Try to load schema from disk cache. Returns True on success."""
+        try:
+            if not CACHE_FILE.exists():
+                return False
+            age = time.time() - CACHE_FILE.stat().st_mtime
+            if age > CACHE_TTL_SECONDS:
+                logger.info("Schema cache expired, will refresh from API")
+                return False
+            with CACHE_FILE.open() as f:
+                self.schema = json.load(f)
+            self._build_caches()
+            self.schema_loaded = True
+            logger.info(f"✓ Schema loaded from cache (age {int(age)}s)")
+            logger.info(f"  - {len(self.queries_cache)} queries")
+            logger.info(f"  - {len(self.mutations_cache)} mutations")
+            logger.info(f"  - {len(self.types_cache)} types")
+            return True
+        except Exception as e:
+            logger.warning(f"Could not read schema cache: {e}")
+            return False
+
+    def _save_schema_cache(self) -> None:
+        """Persist schema to disk cache."""
+        try:
+            CACHE_DIR.mkdir(parents=True, exist_ok=True)
+            with CACHE_FILE.open("w") as f:
+                json.dump(self.schema, f)
+            logger.info(f"Schema cached to {CACHE_FILE}")
+        except Exception as e:
+            logger.warning(f"Could not save schema cache: {e}")
     
-    def load_schema(self) -> bool:
-        """Load GraphQL schema via introspection query"""
+    def load_schema(self, force_refresh: bool = False) -> bool:
+        """Load GraphQL schema via introspection query, with disk caching.
+
+        Args:
+            force_refresh: Skip cache and always fetch from API.
+        """
+        if not force_refresh and self._load_cached_schema():
+            return True
+
+        return self._fetch_schema_from_api()
+
+    def _fetch_schema_from_api(self) -> bool:
+        """Fetch schema from nife.io API via introspection."""
         introspection_query = """
         query IntrospectionQuery {
             __schema {
@@ -136,13 +192,14 @@ class SchemaManager:
             self._build_caches()
             
             self.schema_loaded = True
-            logger.info(f"✓ Schema loaded successfully")
+            logger.info(f"✓ Schema loaded from API")
             logger.info(f"  - {len(self.queries_cache)} queries")
             logger.info(f"  - {len(self.mutations_cache)} mutations")
             logger.info(f"  - {len(self.types_cache)} types")
-            
+
+            self._save_schema_cache()
             return True
-            
+
         except Exception as e:
             logger.error(f"Schema loading failed: {e}")
             return False
@@ -278,64 +335,77 @@ class SchemaManager:
         return_fields: Optional[List[str]] = None
     ) -> str:
         """
-        Build a GraphQL mutation dynamically
-        
+        Build a GraphQL mutation dynamically.
+
+        Reads actual argument names from the schema instead of assuming
+        they are always called 'input'.
+
         Args:
             mutation_name: Name of the mutation
-            input_data: Input data for mutation
+            input_data: Input data for mutation (passed to first argument)
             return_fields: Fields to return (auto-detected if None)
         """
         if not self.schema_loaded:
             raise RuntimeError("Schema not loaded. Call load_schema() first.")
-        
+
         if mutation_name not in self.mutations_cache:
             raise ValueError(f"Mutation '{mutation_name}' not found in schema")
-        
+
         mutation_def = self.mutations_cache[mutation_name]
         return_type = self._get_base_type(mutation_def['type'])
-        
+
         # Determine return fields
         if return_fields:
             fields_str = '\n'.join(return_fields)
         else:
-            # Auto-detect from return type
             selected_fields = self.get_available_fields(return_type, include_nested=False)
             fields_str = self._build_fields_string(selected_fields, return_type)
-        
+
+        # Resolve the actual first argument name from the schema
+        args = mutation_def.get('args', [])
+        arg_name = args[0]['name'] if args else 'input'
+
         # Build input string
         input_str = self._build_input_string(input_data)
-        
+
         # Construct mutation
         mutation = f"""
         mutation {mutation_name.capitalize()} {{
-            {mutation_name}(input: {{{input_str}}}) {{
+            {mutation_name}({arg_name}: {{{input_str}}}) {{
                 {fields_str}
             }}
         }}
         """
-        
+
         return mutation.strip()
     
     def _build_fields_string(self, fields: List[str], parent_type: str, depth: int = 0) -> str:
-        """Build fields string with nested expansion"""
+        """Build fields string with nested expansion.
+
+        Falls back to '__typename' when no scalar fields are available so
+        the generated query is always syntactically valid.
+        """
+        if not fields:
+            return '__typename'
+
         if depth > 2:  # Prevent infinite recursion
-            return '\n'.join(fields)
-        
+            return '\n'.join(fields) if fields else '__typename'
+
         if parent_type not in self.types_cache:
             return '\n'.join(fields)
-        
+
         type_def = self.types_cache[parent_type]
         type_fields = {f['name']: f for f in type_def.get('fields', [])}
-        
+
         result = []
         for field_name in fields:
             if field_name not in type_fields:
                 result.append(field_name)
                 continue
-            
+
             field_def = type_fields[field_name]
             field_type = self._get_base_type(field_def['type'])
-            
+
             # If scalar, just add field name
             if self._is_scalar_type(field_type):
                 result.append(field_name)
@@ -346,9 +416,10 @@ class SchemaManager:
                     nested_str = self._build_fields_string(nested_fields, field_type, depth + 1)
                     result.append(f"{field_name} {{\n{nested_str}\n}}")
                 else:
-                    result.append(field_name)
-        
-        return '\n'.join(result)
+                    # No scalar sub-fields — request __typename to keep query valid
+                    result.append(f"{field_name} {{ __typename }}")
+
+        return '\n'.join(result) if result else '__typename'
     
     def _build_args_string(self, args: Dict) -> str:
         """Build arguments string for query"""

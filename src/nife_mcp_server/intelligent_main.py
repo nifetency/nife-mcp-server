@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 
 # Import schema manager and GraphQL client
 from nife_mcp_server.schema_manager import SchemaManager
-from nife_mcp_server.routes.mcp import NifeGraphQLClient
+from nife_mcp_server.client import NifeGraphQLClient
 
 class IntelligentNifeMCPServer:
     """
@@ -627,9 +627,13 @@ class IntelligentNifeMCPServer:
         logger.info("Intelligent Nife MCP Server stopped")
 
 async def main():
-    """Main entry point"""
+    """Async entry point"""
     server = IntelligentNifeMCPServer()
     await server.run()
 
-if __name__ == "__main__":
+def run():
+    """Synchronous entry point used by pyproject.toml console_scripts."""
     asyncio.run(main())
+
+if __name__ == "__main__":
+    run()
