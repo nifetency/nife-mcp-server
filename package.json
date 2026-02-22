@@ -1,5 +1,5 @@
 {
-  "name": "@nife/mcp-server",
+  "name": "@nifelabs/mcp-server",
   "version": "1.0.0",
   "description": "Model Context Protocol server for Nife.io GraphQL API",
   "main": "bin/nife-mcp-server.js",
