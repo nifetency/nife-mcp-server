@@ -3,7 +3,7 @@ requests==2.32.4
 certifi==2025.7.14
 charset-normalizer==3.4.2
 idna==3.10
-urllib3==2.5.0
+urllib3>=2.6.3
 typing_extensions==4.14.0
 
 # Optional: REST API layer (routes/mcp.py)
