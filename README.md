@@ -2,9 +2,6 @@
 
 <div align="center">
 
-[![PyPI version](https://badge.fury.io/py/nife-mcp-server.svg)](https://badge.fury.io/py/nife-mcp-server)
-[![npm version](https://badge.fury.io/js/@nife%2Fmcp-server.svg)](https://badge.fury.io/js/@nife%2Fmcp-server)
-[![CI](https://github.com/nife-io/nife-mcp-server/actions/workflows/ci.yml/badge.svg)](https://github.com/nife-io/nife-mcp-server/actions/workflows/ci.yml)
 [![Python](https://img.shields.io/badge/python-3.8%2B-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Downloads](https://pepy.tech/badge/nife-mcp-server)](https://pepy.tech/project/nife-mcp-server)
@@ -46,13 +43,13 @@ pip install nife-mcp-server
 ### Option 2: NPM (Best for Claude Desktop)
 
 ```bash
-npx @nife/mcp-server
+npx @nifelabs/mcp-server@latest
 ```
 
 ### Option 3: From Source
 
 ```bash
-git clone https://github.com/nife-io/nife-mcp-server.git
+git clone https://github.com/nifetency/nife-mcp-graphql
 cd nife-mcp-server
 pip install -r requirements.txt
 ```
@@ -68,14 +65,48 @@ nifectl auth token
 
 ### 2. Configure Claude Desktop
 
-Add to your Claude Desktop configuration:
+You can use the Nife MCP Server in three ways depending on your setup.
 
-```json
+------------------------------------------------------------------------
+
+### 1. Recommended: Using NPX (No Installation Required)
+
+This is the easiest way to get started.
+
+``` json
 {
   "mcpServers": {
     "nife": {
       "command": "npx",
-      "args": ["-y", "@nife/mcp-server"],
+      "args": ["--yes", "@nifelabs/mcp-server@latest"],
+      "env": {
+        "NIFE_ACCESS_TOKEN": "your_token_here",
+        "PYTHON": "PYTHON_PATH"
+
+      }
+    }
+  }
+}
+```
+
+------------------------------------------------------------------------
+
+### 2. 🐍 Using Python (Installed via pip)
+
+If you installed the package via pip:
+
+``` bash
+pip install nife-mcp-server
+```
+
+Use this configuration:
+
+``` json
+{
+  "mcpServers": {
+    "nife": {
+      "command": "python",
+      "args": ["-m", "nife_mcp_server"],
       "env": {
         "NIFE_ACCESS_TOKEN": "your_token_here"
       }
@@ -83,6 +114,41 @@ Add to your Claude Desktop configuration:
   }
 }
 ```
+
+------------------------------------------------------------------------
+
+### 3.  Local Development (Source Code)
+
+If you're running from source:
+
+``` json
+{
+  "mcpServers": {
+    "nife": {
+      "command": "python",
+      "args": ["-m", "nife_mcp_server.intelligent_main"],
+      "env": {
+        "PYTHONPATH": "C:\\path\\to\\nife-mcp-server\\src",
+        "NIFE_ACCESS_TOKEN": "your_token_here"
+      }
+    }
+  }
+}
+```
+
+⚠️ Replace the `PYTHONPATH` with your local project path.
+
+------------------------------------------------------------------------
+
+##  Environment Variables
+
+  Variable              Description
+  --------------------- ---------------------------------
+  `NIFE_ACCESS_TOKEN`   Your API access token from Nife
+
+------------------------------------------------------------------------
+
+
 
 ### 3. Restart Claude Desktop
 
@@ -174,7 +240,7 @@ The server provides full access to Nife.io's GraphQL API:
 
 ```bash
 # Clone the repository
-git clone https://github.com/nife-io/nife-mcp-server.git
+git clone https://github.com/nifetency/nife-mcp-graphql
 cd nife-mcp-server
 
 # Create virtual environment
@@ -185,7 +251,10 @@ source .venv/bin/activate  # On Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 pip install -e .  # Install in editable mode
 
+
+
 # Run the server
+cd src
 python -m nife_mcp_server.intelligent_main
 ```
 
@@ -274,7 +343,7 @@ If you find this project useful, please consider giving it a star!
 
 <div align="center">
 
-**Made with ❤️ by the Nife.io team**
+**Made by the Nife.io team**
 
 [Website](https://nife.io) • [Documentation](https://docs.nife.io) • [Blog](https://blog.nife.io)
 

@@ -9,7 +9,8 @@ const { spawn } = require('child_process');
 const path = require('path');
 
 // Get Python command (try python3 first, fallback to python)
-const pythonCmd = process.platform === 'win32' ? 'python' : 'python3';
+const pythonCmd =
+  process.env.PYTHON || (process.platform === 'win32' ? 'python' : 'python3');
 
 // Get the directory where the package is installed
 const packageDir = path.join(__dirname, '..');

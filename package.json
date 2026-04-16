@@ -1,6 +1,6 @@
 {
   "name": "@nifelabs/mcp-server",
-  "version": "1.0.0",
+  "version": "1.0.4",
   "description": "Model Context Protocol server for Nife.io GraphQL API",
   "main": "bin/nife-mcp-server.js",
   "bin": {
@@ -23,12 +23,9 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/nife-io/nife-mcp-server.git"
+    "url": "https://github.com/nifetency/nife-mcp-graphql"
   },
-  "bugs": {
-    "url": "https://github.com/nife-io/nife-mcp-server/issues"
-  },
-  "homepage": "https://github.com/nife-io/nife-mcp-server#readme",
+  "homepage": "https://github.com/nifetency/nife-mcp-graphql/blob/main/README.md",
   "engines": {
     "node": ">=16.0.0"
   },

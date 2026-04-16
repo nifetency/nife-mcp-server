@@ -1,2 +1,2 @@
 [console_scripts]
-nife-mcp-server = nife_mcp_server.intelligent_main:main
+nife-mcp-server = nife_mcp_server.intelligent_main:run

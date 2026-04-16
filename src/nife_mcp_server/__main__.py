@@ -2,7 +2,8 @@
 """
 Main entry point - runs the Intelligent Schema-Driven MCP Server
 """
-from nife_mcp_server.intelligent_main import run
+import asyncio
+from nife_mcp_server.intelligent_main import main
 
 if __name__ == "__main__":
-    run()
+    asyncio.run(main())
