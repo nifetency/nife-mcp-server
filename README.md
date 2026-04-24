@@ -345,6 +345,6 @@ If you find this project useful, please consider giving it a star!
 
 **Made by the Nife.io team**
 
-[Website](https://nife.io) • [Documentation](https://docs.nife.io) • [Blog](https://blog.nife.io)
+[Website](https://nife.io) • [Documentation](https://docs.nife.io) • [Blog](https://blog.nife.io) • [MCP Open Source](https://nife.io/mcp_opensource)
 
 </div>
