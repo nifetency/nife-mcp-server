@@ -18,21 +18,21 @@
 
 ---
 
-## 🌟 Overview
+##  Overview
 
 Nife MCP Server provides a standardized interface to interact with Nife.io's GraphQL API through the Model Context Protocol, enabling seamless integration with Claude Desktop and other MCP-compatible applications.
 
-### ✨ Key Features
+###  Key Features
 
-- 🧠 **Intelligent Schema Discovery** - Automatically discovers and adapts to the GraphQL schema
-- 🔧 **Dynamic Tool Generation** - Creates MCP tools on-the-fly from schema
-- 🚀 **Zero Configuration** - Works out of the box with minimal setup
-- 🔒 **Secure Authentication** - Bearer token support with flexible configuration
-- 📦 **Multiple Install Methods** - PyPI, NPM, or GitHub
-- 🌐 **Cross-Platform** - Works on macOS, Linux, and Windows
-- ⚡ **Production Ready** - Comprehensive error handling and logging
+-  **Intelligent Schema Discovery** - Automatically discovers and adapts to the GraphQL schema
+-  **Dynamic Tool Generation** - Creates MCP tools on-the-fly from schema
+-  **Zero Configuration** - Works out of the box with minimal setup
+-  **Secure Authentication** - Bearer token support with flexible configuration
+-  **Multiple Install Methods** - PyPI, NPM, or GitHub
+-  **Cross-Platform** - Works on macOS, Linux, and Windows
+-  **Production Ready** - Comprehensive error handling and logging
 
-## 📦 Installation
+##  Installation
 
 ### Option 1: PyPI (Recommended for Python users)
 
@@ -54,7 +54,7 @@ cd nife-mcp-server
 pip install -r requirements.txt
 ```
 
-## 🚀 Quick Start
+##  Quick Start
 
 ### 1. Get Your Access Token
 
@@ -91,7 +91,7 @@ This is the easiest way to get started.
 
 ------------------------------------------------------------------------
 
-### 2. 🐍 Using Python (Installed via pip)
+### 2.  Using Python (Installed via pip)
 
 If you installed the package via pip:
 
@@ -136,7 +136,7 @@ If you're running from source:
 }
 ```
 
-⚠️ Replace the `PYTHONPATH` with your local project path.
+ Replace the `PYTHONPATH` with your local project path.
 
 ------------------------------------------------------------------------
 
@@ -161,7 +161,7 @@ Your Nife.io integration is now active! 🎉
 - [Release Guide](RELEASE_GUIDE.md) - For contributors and maintainers
 - [Contributing](CONTRIBUTING.md) - How to contribute
 
-## 🎯 Usage
+##  Usage
 
 ### Starting the Server
 
@@ -190,7 +190,7 @@ Once configured, you can ask Claude:
 "Create a new application called 'my-app'"
 ```
 
-## 🏗️ Architecture
+##  Architecture
 
 ```
 ┌─────────────────┐
@@ -213,7 +213,7 @@ Once configured, you can ask Claude:
 - **Query Builder** - Smart query construction
 - **Authentication** - Secure token management
 
-## 🔌 API Endpoints
+##  API Endpoints
 
 ### MCP Endpoints
 
@@ -229,12 +229,12 @@ Once configured, you can ask Claude:
 
 The server provides full access to Nife.io's GraphQL API:
 
-- ✅ Query all resources (apps, deployments, etc.)
-- ✅ Execute mutations (create, update, delete)
-- ✅ Custom query execution
-- ✅ Schema introspection
+-  Query all resources (apps, deployments, etc.)
+-  Execute mutations (create, update, delete)
+-  Custom query execution
+-  Schema introspection
 
-## 🛠️ Development
+##  Development
 
 ### Setup Development Environment
 
@@ -280,16 +280,16 @@ pytest
 pytest --cov=nife_mcp_server  # With coverage
 ```
 
-## 🤝 Contributing
+##  Contributing
 
 We love contributions! Please see our [Contributing Guide](CONTRIBUTING.md) for details.
 
 ### Ways to Contribute
 
-- 🐛 Report bugs
-- 💡 Suggest features
-- 📝 Improve documentation
-- 💻 Submit pull requests
+-  Report bugs
+-  Suggest features
+-  Improve documentation
+-  Submit pull requests
 
 ### Development Process
 
@@ -299,31 +299,31 @@ We love contributions! Please see our [Contributing Guide](CONTRIBUTING.md) for 
 4. Add tests
 5. Submit a pull request
 
-## 📊 Stats
+##  Stats
 
 ![GitHub stars](https://img.shields.io/github/stars/nife-io/nife-mcp-server?style=social)
 ![GitHub forks](https://img.shields.io/github/forks/nife-io/nife-mcp-server?style=social)
 ![GitHub issues](https://img.shields.io/github/issues/nife-io/nife-mcp-server)
 ![GitHub pull requests](https://img.shields.io/github/issues-pr/nife-io/nife-mcp-server)
 
-## 📄 License
+##  License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-## 🙏 Acknowledgments
+##  Acknowledgments
 
 - Built for the [Model Context Protocol](https://modelcontextprotocol.io/)
 - Powered by [Nife.io](https://nife.io)
 - Designed for [Claude Desktop](https://claude.ai/desktop)
 
-## 📞 Support
+##  Support
 
-- 📧 Email: support@nife.io
-- 🐛 Issues: [GitHub Issues](https://github.com/nife-io/nife-mcp-server/issues)
-- 💬 Discussions: [GitHub Discussions](https://github.com/nife-io/nife-mcp-server/discussions)
-- 📖 Documentation: [Full Docs](https://github.com/nife-io/nife-mcp-server#readme)
+-  Email: support@nife.io
+-  Issues: [GitHub Issues](https://github.com/nife-io/nife-mcp-server/issues)
+-  Discussions: [GitHub Discussions](https://github.com/nife-io/nife-mcp-server/discussions)
+-  Documentation: [Full Docs](https://github.com/nife-io/nife-mcp-server#readme)
 
-## 🗺️ Roadmap
+##  Roadmap
 
 - [ ] WebSocket support for real-time updates
 - [ ] GraphQL subscriptions
@@ -333,7 +333,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - [ ] Docker Compose examples
 - [ ] Kubernetes manifests
 
-## ⭐ Star History
+##  Star History
 
 If you find this project useful, please consider giving it a star!
 
