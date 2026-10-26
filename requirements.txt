@@ -8,7 +8,7 @@ typing_extensions==4.14.0
 
 # Optional: REST API layer (routes/mcp.py)
 # Remove these if only running the MCP stdio server.
-Flask==3.1.1
+Flask==3.1.3
 flask-cors==6.0.0
 Werkzeug==3.1.3
 Jinja2==3.1.6
