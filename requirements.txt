@@ -1,5 +1,5 @@
 # Core MCP server dependencies
-requests==2.32.4
+requests==2.33.0
 certifi==2025.7.14
 charset-normalizer==3.4.2
 idna==3.10
