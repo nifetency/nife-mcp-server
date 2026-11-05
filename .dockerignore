@@ -1,0 +1,18 @@
+.git
+.github
+.venv
+venv
+node_modules
+dist
+build
+tests
+.env
+.env.*
+**/__pycache__
+**/*.pyc
+**/*.egg-info
+# root-level scripts/docs are not needed in the image (README.md is: pyproject reads it)
+/*.sh
+/*.py
+/*.md
+!/README.md

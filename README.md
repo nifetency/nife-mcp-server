@@ -157,6 +157,7 @@ Your Nife.io integration is now active! 🎉
 ## 📚 Documentation
 
 - [Quick Start Guide](QUICKSTART.md) - Get started in 5 minutes
+- [Hosted connector (URL-based)](HOSTED.md) - Deploy the remote server and connect by URL
 - [API Documentation](ENDPOINT_GUIDE.md) - Complete API reference
 - [Release Guide](RELEASE_GUIDE.md) - For contributors and maintainers
 - [Contributing](CONTRIBUTING.md) - How to contribute
