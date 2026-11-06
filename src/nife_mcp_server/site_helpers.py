@@ -60,6 +60,11 @@ def site_url(name: str) -> str:
     return f"https://{name}.{SITE_DOMAIN}"
 
 
+def site_host(name: str) -> str:
+    """The hostname nifex tracks traffic under for a site."""
+    return f"{name}.{SITE_DOMAIN}"
+
+
 def parse_repo_url(url: str) -> Tuple[str, str, str]:
     """Return (provider, owner, repo) for a GitHub/GitLab/Bitbucket https URL.
 
@@ -174,19 +179,49 @@ def build_commands(cfg: Dict[str, str]) -> List[Dict[str, str]]:
 
 
 # --------------------------------------------------------------- env variables
+def _encryption_key() -> str:
+    """The dashboard's VITE_ENCRYPTION_KEY. One key covers env values and vault tokens."""
+    return os.environ.get("NIFE_ENCRYPTION_KEY") or os.environ.get("NIFE_ENV_ENCRYPTION_KEY", "")
+
+
+def decrypt_secret(hex_ciphertext: str, key: Optional[str] = None) -> Optional[str]:
+    """Decrypt a vault value (e.g. a stored Git token) the way the dashboard's
+    ``decodeAes`` does. Returns None when no key is configured or the value does
+    not decrypt, so callers can fall back to anonymous checks.
+
+    The result must never be returned to the model or logged.
+    """
+    key = key if key is not None else _encryption_key()
+    kb = key.encode("utf-8")
+    if not key or len(kb) not in (16, 24, 32) or not hex_ciphertext:
+        return None
+    try:
+        from cryptography.hazmat.primitives import padding
+        from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
+
+        raw = bytes.fromhex(hex_ciphertext.strip())
+        dec = Cipher(algorithms.AES(kb), modes.CBC(kb[:16])).decryptor()
+        padded = dec.update(raw) + dec.finalize()
+        unpadder = padding.PKCS7(128).unpadder()
+        text = (unpadder.update(padded) + unpadder.finalize()).decode("utf-8")
+        return text or None
+    except Exception:  # wrong key, not hex, bad padding, not utf-8
+        return None
+
+
 def encrypt_env_value(plaintext: str, key: Optional[str] = None) -> str:
     """AES-CBC, key = UTF-8 bytes, IV = first 16 key bytes, hex output.
 
     Same scheme as the dashboard's ``encryptEnvValue``. If no key is configured
-    (``NIFE_ENV_ENCRYPTION_KEY``) the value is sent as-is, which is only
-    acceptable if the backend accepts plaintext over TLS.
+    (``NIFE_ENCRYPTION_KEY`` / ``NIFE_ENV_ENCRYPTION_KEY``) the value is sent as-is,
+    which is only acceptable if the backend accepts plaintext over TLS.
     """
-    key = key if key is not None else os.environ.get("NIFE_ENV_ENCRYPTION_KEY", "")
+    key = key if key is not None else _encryption_key()
     if not key or not plaintext:
         return plaintext
     kb = key.encode("utf-8")
     if len(kb) not in (16, 24, 32):
-        raise ValueError("NIFE_ENV_ENCRYPTION_KEY must be 16, 24 or 32 bytes long")
+        raise ValueError("NIFE_ENCRYPTION_KEY must be 16, 24 or 32 bytes long")
 
     from cryptography.hazmat.primitives import padding
     from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
@@ -212,3 +247,162 @@ def encode_env(env: Optional[Dict[str, str]]) -> List[Dict[str, str]]:
             raise ValueError(f"Environment variable {k} is too long")
         out.append({"name": k, "value": encrypt_env_value(v)})
     return out
+
+
+# -------------------------------------------------------- framework detection
+# Priority-ordered dependency -> framework (names match FRAMEWORKS). Same rules as the
+# dashboard's one-click-deploy flow in DeploySite.tsx.
+DEP_RULES = [
+    (["next"], "Next.js"),
+    (["nuxt", "nuxt3", "@nuxt/core"], "Nuxt.js"),
+    (["gatsby"], "Gatsby"),
+    (["@remix-run/dev", "@remix-run/react"], "Remix"),
+    (["@sveltejs/kit", "svelte"], "Svelte"),
+    (["@angular/core"], "Angular"),
+    (["ember-cli"], "Ember.js"),
+    (["vue"], "Vue.js"),
+    (["vite"], "Vite"),
+    (["react", "react-dom", "react-scripts"], "React"),
+]
+
+
+def detect_framework(package_json: Dict[str, Any]) -> Optional[str]:
+    deps: Dict[str, Any] = {}
+    for section in ("dependencies", "devDependencies", "peerDependencies"):
+        value = package_json.get(section)
+        if isinstance(value, dict):
+            deps.update(value)
+    for names, framework in DEP_RULES:
+        if any(n in deps for n in names):
+            return framework
+    return None
+
+
+def suggested_build(framework: str) -> Dict[str, str]:
+    p = FRAMEWORKS[framework]
+    return {
+        "framework": framework,
+        "install_command": p["install"],
+        "build_command": p["build"],
+        "output_directory": p["output"],
+    }
+
+
+# Vault secret types that can hold a token for each Git provider (as the UI filters them)
+PROVIDER_SECRET_TYPES = {
+    "github": ("PAT", "GitHub", "github_registry"),
+    "gitlab": ("PAT", "gitlab_registry", "GitLab"),
+    "bitbucket": ("PAT", "bitbucket_registry", "Bitbucket"),
+}
+
+
+def secret_matches_provider(registry_type: Optional[str], provider: str) -> bool:
+    return not registry_type or registry_type in PROVIDER_SECRET_TYPES.get(provider, ())
+
+
+# ------------------------------------------------------ analytics formatting
+RANGE_HOURS = {"1h": 1, "6h": 6, "24h": 24, "7d": 168, "30d": 720}
+
+
+def validate_range(value: str) -> str:
+    if value not in RANGE_HOURS:
+        raise ValueError("range must be one of: " + ", ".join(RANGE_HOURS))
+    return value
+
+
+def clamp(value: int, low: int, high: int) -> int:
+    return max(low, min(high, int(value)))
+
+
+def build_seconds(raw: Any) -> Optional[int]:
+    """The dashboard treats buildTime as milliseconds."""
+    try:
+        return round(int(float(raw)) / 1000)
+    except (TypeError, ValueError):
+        return None
+
+
+def parse_build_commands(cmds: Optional[List[Dict[str, str]]]) -> Optional[Dict[str, str]]:
+    """buildCommandsS3 is positional: [install, build, node version]."""
+    values = [c.get("s3Cmd", "") for c in (cmds or []) if isinstance(c, dict)]
+    if len(values) < 2:
+        return None
+    out = {"install_command": values[0], "build_command": values[1]}
+    if len(values) > 2:
+        out["node_version"] = values[2]
+    return out
+
+
+def gb(value: Any) -> Optional[float]:
+    """Decimal GB (10^9), the unit the backend bills bandwidth in."""
+    try:
+        return round(float(value) / 1_000_000_000, 3)
+    except (TypeError, ValueError):
+        return None
+
+
+def top_items(value: Any, n: int = 10) -> Any:
+    """Keep analytics payloads small: top-n of a {name: number} map, else truncate."""
+    if isinstance(value, dict):
+        numeric = {k: v for k, v in value.items() if isinstance(v, (int, float))}
+        if numeric:
+            ranked = sorted(numeric.items(), key=lambda kv: kv[1], reverse=True)[:n]
+            return [{"name": k, "value": v} for k, v in ranked]
+        return dict(list(value.items())[:n])
+    if isinstance(value, list):
+        return value[:n]
+    return value
+
+
+def downsample_series(points: List[Dict[str, Any]], max_points: int = 24) -> List[Dict[str, Any]]:
+    """Collapse a nifex time series into at most ``max_points`` buckets."""
+    if not points:
+        return []
+    size = max(1, -(-len(points) // max_points))  # ceil
+    out = []
+    for i in range(0, len(points), size):
+        chunk = points[i:i + size]
+        req = sum(int(p.get("requests") or 0) for p in chunk)
+        weighted = sum((p.get("avg_ms") or 0) * int(p.get("requests") or 0) for p in chunk)
+        p95s = [p["p95_ms"] for p in chunk if p.get("p95_ms") is not None]
+        out.append({
+            "time": chunk[0].get("time"),
+            "requests": req,
+            "errors_5xx": sum(int(p.get("s5xx") or 0) for p in chunk),
+            "errors_4xx": sum(int(p.get("s4xx") or 0) for p in chunk),
+            "avg_ms": round(weighted / req, 1) if req else None,
+            "p95_ms_max": max(p95s) if p95s else None,
+            "bytes_out": sum(int(p.get("bytes_out") or 0) for p in chunk),
+        })
+    return out
+
+
+def uptime_stats(beats: List[Dict[str, Any]], max_incidents: int = 5) -> Dict[str, Any]:
+    """Availability from Uptime Kuma heartbeats: share of checks that were up, the
+    average response time, and the most recent outages."""
+    ordered = sorted(beats, key=lambda b: str(b.get("time", "")))
+    total = len(ordered)
+    if total == 0:
+        return {"checks": 0, "uptime_percent": None}
+    up = sum(1 for b in ordered if b.get("status") is True)
+    pings = [b["ping"] for b in ordered if isinstance(b.get("ping"), (int, float)) and b["ping"] > 0]
+
+    incidents: List[Dict[str, Any]] = []
+    run: List[Dict[str, Any]] = []
+    for b in ordered + [{"status": True}]:  # sentinel closes a trailing outage
+        if b.get("status") is True:
+            if run:
+                incidents.append({"from": run[0].get("time"), "to": run[-1].get("time"), "failed_checks": len(run)})
+                run = []
+        else:
+            run.append(b)
+    last = ordered[-1]
+    return {
+        "checks": total,
+        "uptime_percent": round(up / total * 100, 2),
+        "avg_response_ms": round(sum(pings) / len(pings)) if pings else None,
+        "currently_up": last.get("status") is True,
+        "last_check": last.get("time"),
+        "outages": len(incidents),
+        "recent_outages": incidents[-max_incidents:],
+    }

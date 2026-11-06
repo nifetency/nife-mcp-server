@@ -75,7 +75,7 @@ Build and run locally:
   -e NIFE_MCP_OAUTH_SECRET= y8SZICjpV3m5SFv_6Rb9rKs6qE0qH0hhXaNhbDtmh4k^
   -e NIFE_GRAPHQL_URL=https://api.nife.io/graphql ^
   -e NIFE_EXPRESS_URL=https://getuptime.clb2.nifetency.com ^
-  -e NIFE_MCP_LOGIN_URL=http://localhost:8080/login ^
+  -e NIFE_MCP_LOGIN_URL=http://localhost:8080/login 
   nife-mcp-server
 ```
 
