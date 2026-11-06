@@ -596,6 +596,91 @@ class NifeAPI:
             return {"exists": False}
         return data if isinstance(data, dict) else {"exists": False}
 
+    # --------------------------------------------------------------- PAT secrets
+    async def list_pats(self) -> List[Dict[str, Any]]:
+        """List the user's stored PATs (type + id only, never the token value)."""
+        data = await self.graphql(
+            """query GetUserPAT {
+                 getUserPAT { id type userId createdAt updatedAt }
+               }"""
+        )
+        return data.get("getUserPAT") or []
+
+    async def add_pat(self, pat_type: str, pat_token: str) -> Any:
+        data = await self.graphql(
+            """mutation AddPAT($type: String!, $patToken: String!) {
+                 addPAT(input: { type: $type, patToken: $patToken })
+               }""",
+            {"type": pat_type, "patToken": pat_token},
+        )
+        return data.get("addPAT")
+
+    async def delete_pat(self, pat_id: str) -> Any:
+        data = await self.graphql(
+            """mutation DeletePAT($id: String!) {
+                 deletePAT(id: $id)
+               }""",
+            {"id": pat_id},
+        )
+        return data.get("deletePAT")
+
+    async def add_secret(
+        self,
+        name: str,
+        registry_type: str,
+        password: str,
+        organization_id: str,
+    ) -> Any:
+        """Create a named Git PAT secret.
+        Tries the GraphQL mutation first (matches what the dashboard uses),
+        falls back to the vault REST endpoint if the mutation doesn't exist."""
+        try:
+            data = await self.graphql(
+                """mutation AddSecret(
+                     $name: String! $registryType: String! $passWord: String! $organizationId: String!
+                   ) {
+                     addSecret(input: {
+                       name: $name registryType: $registryType passWord: $passWord
+                       organizationId: $organizationId
+                     }) { id name registryType organizationId isActive }
+                   }""",
+                {
+                    "name": name,
+                    "registryType": registry_type,
+                    "passWord": password,
+                    "organizationId": organization_id,
+                },
+            )
+            return data.get("addSecret")
+        except NifeAPIError:
+            # Fallback: vault REST endpoint
+            payload = {
+                "name": name,
+                "organization_id": organization_id,
+                "registry_type": registry_type,
+                "vault_type": "internal",
+                "vault_path": "secrets",
+                "secret_data": {"key": name, "value": password},
+            }
+            resp = await send(
+                "POST",
+                f"{GRAPHQL_URL.rsplit('/graphql', 1)[0]}/api/v1/vault/secrets",
+                json=payload,
+                headers=self._headers,
+                timeout=20.0,
+            )
+            _check_status(resp)
+            return _json(resp)
+
+    async def delete_secret_by_id(self, secret_id: str) -> Any:
+        data = await self.graphql(
+            """mutation DeleteSecret($id: String!) {
+                 deleteSecret(id: $id)
+               }""",
+            {"id": secret_id},
+        )
+        return data.get("deleteSecret")
+
     # ------------------------------------------- express-backend (REST) upload
     async def github_upload_to_s3(
         self, repo_url: str, branch: str, git_pat: str, provider: str

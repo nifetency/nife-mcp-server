@@ -962,6 +962,61 @@ def register_site_tools(mcp: FastMCP) -> None:
             "note": "Wait 1–2 minutes before calling get_site_traffic.",
         }
 
+    # --------------------------------------------------------- secret management
+    @mcp.tool(annotations=WRITE)
+    async def add_git_secret(
+        name: Annotated[str, Field(description="A short label for this secret, e.g. 'my-github-pat'. Used as pat_secret_name in deploy_site.")],
+        registry_type: Annotated[
+            Literal["github", "gitlab", "bitbucket"],
+            Field(description="Git provider this token belongs to"),
+        ],
+        token: Annotated[str, Field(description="The personal access token (PAT) value. Stored securely — never logged or returned.")],
+        organization_id: Annotated[str, Field(description="Organization to store the secret under (from list_organizations)")],
+        ctx: Context,
+    ) -> Dict[str, Any]:
+        """Store a Git personal access token (PAT) as a named secret so it can be used
+        for private repository deployments. Pass the returned name as pat_secret_name
+        in deploy_site or inspect_repository. The token value is never returned after this call."""
+        api = get_api(ctx)
+        try:
+            orgs = await api.organizations()
+            if organization_id not in {o["id"] for o in orgs}:
+                raise ValueError("Unknown organization_id. Use list_organizations to see available organizations.")
+            result = await api.add_secret(
+                name=name.strip(),
+                registry_type=registry_type,
+                password=token,
+                organization_id=organization_id,
+            )
+        except (ValueError, NifeAPIError) as exc:
+            raise fail(exc)
+        return {
+            "stored": True,
+            "name": name,
+            "registry_type": registry_type,
+            "organization_id": organization_id,
+            "note": "Use this name as pat_secret_name when calling deploy_site or inspect_repository.",
+        }
+
+    @mcp.tool(annotations=DESTRUCTIVE)
+    async def delete_git_secret(
+        name: Annotated[str, Field(description="Name of the secret to delete (from list_git_secrets)")],
+        ctx: Context,
+    ) -> Dict[str, Any]:
+        """Permanently delete a stored Git PAT secret by name. Any site deployed with this
+        secret will still work — only future deploys using this secret name will fail.
+        Confirm with the user before calling."""
+        api = get_api(ctx)
+        try:
+            secrets = await api.list_secrets()
+            match = next((s for s in secrets if s.get("name") == name), None)
+            if not match:
+                raise ValueError(f"No secret named '{name}' found. Use list_git_secrets to see available secrets.")
+            await api.delete_secret_by_id(match["id"])
+        except (ValueError, NifeAPIError) as exc:
+            raise fail(exc)
+        return {"deleted": True, "name": name}
+
     # ---------------------------------------------------------------- prompt
     @mcp.prompt(title="Deploy a static site")
     def deploy_site_guide(source: str = "") -> str:
