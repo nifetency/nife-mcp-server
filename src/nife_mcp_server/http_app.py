@@ -50,12 +50,28 @@ async def health(_: Request) -> JSONResponse:
 
 _origins = [o.strip() for o in os.environ.get("NIFE_MCP_ALLOWED_ORIGINS", "").split(",") if o.strip()]
 
-app = AuthMiddleware(
+_authenticated_app = AuthMiddleware(
     mcp.streamable_http_app(),
     protected_prefix="/mcp",
     rate_limit_per_minute=int(os.environ.get("NIFE_MCP_RATE_LIMIT_PER_MIN", "120")),
     allowed_origins=_origins or None,
 )
+
+
+async def app(scope, receive, send):
+    # This public ownership proof must run before auth and the MCP handler.
+    if (
+        scope["type"] == "http"
+        and scope["method"] == "GET"
+        and scope["path"] == "/mcp/.well-known/glama.json"
+    ):
+        response = JSONResponse({
+            "$schema": "https://glama.ai/mcp/schemas/connector.json",
+            "claim": "glama_claim_138g5Mc4xxNowLypLtSR9Q8SncEkCkQ9",
+        })
+        await response(scope, receive, send)
+        return
+    await _authenticated_app(scope, receive, send)
 
 
 def main() -> None:
