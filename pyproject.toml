@@ -33,6 +33,15 @@ dependencies = [
   "flask-cors>=3.0.0",
 ]
 
+[project.optional-dependencies]
+# Hosted (remote) connector: Streamable HTTP server. Requires Python 3.10+.
+http = [
+  "mcp>=1.10,<2",  # code targets the 1.x FastMCP API; 2.x renamed it (MCPServer)
+  "httpx>=0.27",
+  "uvicorn>=0.30",
+  "cryptography>=42",
+]
+
 [project.urls]
 Homepage = "https://github.com/nifetency/nife-mcp-graphql"
 Documentation = "https://github.com/nifetency/nife-mcp-graphql/blob/main/README.md"
@@ -40,6 +49,7 @@ Repository = "https://github.com/nifetency/nife-mcp-graphql"
 
 [project.scripts]
 nife-mcp-server = "nife_mcp_server.intelligent_main:run"
+nife-mcp-http = "nife_mcp_server.http_app:main"
 
 [tool.setuptools]
 package-dir = {"" = "src"}
