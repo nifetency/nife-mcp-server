@@ -136,7 +136,7 @@ def _not_suspended(site: Dict[str, Any], action: str) -> None:
 
 def register_site_tools(mcp: FastMCP) -> None:
     # ------------------------------------------------------------- discovery
-    @mcp.tool(annotations=READ_ONLY)
+    @mcp.tool(annotations=READ_ONLY, title="List organizations")
     async def list_organizations(ctx: Context) -> Dict[str, Any]:
         """List the organizations the user can deploy sites into.
         Returns top-level organizations (id, name, slug, type). Use the id as
@@ -152,7 +152,7 @@ def register_site_tools(mcp: FastMCP) -> None:
             ]
         }
 
-    @mcp.tool(annotations=READ_ONLY)
+    @mcp.tool(annotations=READ_ONLY, title="List cloud accounts")
     async def list_cloud_accounts(
         organization_id: Annotated[str, Field(description="Organization id from list_organizations")],
         ctx: Context,
@@ -171,7 +171,7 @@ def register_site_tools(mcp: FastMCP) -> None:
             "default": "Nife (when cloud_account_id is omitted)",
         }
 
-    @mcp.tool(annotations=READ_ONLY)
+    @mcp.tool(annotations=READ_ONLY, title="List site frameworks")
     async def list_site_frameworks() -> Dict[str, Any]:
         """List framework presets (install command, build command, output directory)
         for building a site from source. Pass the framework name to deploy_site."""
@@ -188,7 +188,7 @@ def register_site_tools(mcp: FastMCP) -> None:
             "default_node_version": h.DEFAULT_NODE_VERSION,
         }
 
-    @mcp.tool(annotations=READ_ONLY)
+    @mcp.tool(annotations=READ_ONLY, title="List Git secrets")
     async def list_git_secrets(
         ctx: Context,
         provider: Annotated[
@@ -213,7 +213,7 @@ def register_site_tools(mcp: FastMCP) -> None:
             out.append({"name": s["name"], "type": rtype or "PAT", "organization_id": s.get("organizationId")})
         return {"secrets": out}
 
-    @mcp.tool(annotations=READ_ONLY)
+    @mcp.tool(annotations=READ_ONLY, title="Inspect repository")
     async def inspect_repository(
         repo_url: Annotated[str, Field(description="https://github.com/<owner>/<repo> (or gitlab.com / bitbucket.org)")],
         ctx: Context,
@@ -249,7 +249,7 @@ def register_site_tools(mcp: FastMCP) -> None:
         report["repo_url"] = repo_url.strip()
         return report
 
-    @mcp.tool(annotations=READ_ONLY)
+    @mcp.tool(annotations=READ_ONLY, title="Check site name")
     async def check_site_name(
         site_name: Annotated[str, Field(description="Proposed site name")],
         ctx: Context,
@@ -271,7 +271,7 @@ def register_site_tools(mcp: FastMCP) -> None:
         }
 
     # ---------------------------------------------------------------- status
-    @mcp.tool(annotations=READ_ONLY)
+    @mcp.tool(annotations=READ_ONLY, title="List sites")
     async def list_sites(ctx: Context) -> Dict[str, Any]:
         """List the user's deployed static sites with status and URL."""
         try:
@@ -288,7 +288,7 @@ def register_site_tools(mcp: FastMCP) -> None:
             "count": len(sites),
         }
 
-    @mcp.tool(annotations=READ_ONLY)
+    @mcp.tool(annotations=READ_ONLY, title="Get site status")
     async def get_site_status(
         site_name: Annotated[str, Field(description="Name of the site")],
         ctx: Context,
@@ -309,7 +309,7 @@ def register_site_tools(mcp: FastMCP) -> None:
         }
 
     # ---------------------------------------------------------------- deploy
-    @mcp.tool(annotations=WRITE)
+    @mcp.tool(annotations=WRITE, title="Deploy site")
     async def deploy_site(
         site_name: Annotated[
             str,
@@ -391,7 +391,7 @@ def register_site_tools(mcp: FastMCP) -> None:
             "next_step": "Call get_site_status to follow the deployment.",
         }
 
-    @mcp.tool(annotations=DESTRUCTIVE)
+    @mcp.tool(annotations=DESTRUCTIVE, title="Redeploy site")
     async def redeploy_site(
         site_name: Annotated[str, Field(description="Name of the EXISTING site to update")],
         ctx: Context,
@@ -450,7 +450,7 @@ def register_site_tools(mcp: FastMCP) -> None:
             "next_step": "Call get_site_status to follow the deployment.",
         }
 
-    @mcp.tool(annotations=DESTRUCTIVE)
+    @mcp.tool(annotations=DESTRUCTIVE, title="Revert site version")
     async def revert_site_version(
         site_name: Annotated[str, Field(description="Name of the site")],
         version_id: Annotated[str, Field(description="Version to switch back to, from list_site_deployments")],
@@ -474,7 +474,7 @@ def register_site_tools(mcp: FastMCP) -> None:
             raise fail(exc)
         return {"reverted": True, "site_name": site_name, "to_version": version_id, "backend_response": result}
 
-    @mcp.tool(annotations=DESTRUCTIVE)
+    @mcp.tool(annotations=DESTRUCTIVE, title="Delete site")
     async def delete_site(
         site_name: Annotated[str, Field(description="Name of the site to delete")],
         confirm_site_name: Annotated[str, Field(description="Must exactly equal site_name. Only fill this in after the user has explicitly confirmed the deletion.")],
@@ -495,7 +495,7 @@ def register_site_tools(mcp: FastMCP) -> None:
 
     # ---------------------------------------------------------------- prompt
     # ------------------------------------------------------------ site details
-    @mcp.tool(annotations=READ_ONLY)
+    @mcp.tool(annotations=READ_ONLY, title="Get site details")
     async def get_site_details(
         site_name: Annotated[str, Field(description="Name of the site")],
         ctx: Context,
@@ -536,7 +536,7 @@ def register_site_tools(mcp: FastMCP) -> None:
         }
 
     # --------------------------------------------------- analytics & metrics
-    @mcp.tool(annotations=READ_ONLY)
+    @mcp.tool(annotations=READ_ONLY, title="Get site overview")
     async def get_site_overview(
         site_name: Annotated[str, Field(description="Name of the site")],
         ctx: Context,
@@ -642,7 +642,7 @@ def register_site_tools(mcp: FastMCP) -> None:
             "attention": attention,
         }
 
-    @mcp.tool(annotations=READ_ONLY)
+    @mcp.tool(annotations=READ_ONLY, title="Get site traffic")
     async def get_site_traffic(
         site_name: Annotated[str, Field(description="Name of the site")],
         ctx: Context,
@@ -679,7 +679,7 @@ def register_site_tools(mcp: FastMCP) -> None:
             "time_series": series,
         }
 
-    @mcp.tool(annotations=READ_ONLY)
+    @mcp.tool(annotations=READ_ONLY, title="Get site uptime")
     async def get_site_uptime(
         site_name: Annotated[str, Field(description="Name of the site")],
         ctx: Context,
@@ -702,7 +702,7 @@ def register_site_tools(mcp: FastMCP) -> None:
         stats = h.uptime_stats(beats)
         return {"site_name": site_name, "monitored": True, "hours": hours, **stats}
 
-    @mcp.tool(annotations=READ_ONLY)
+    @mcp.tool(annotations=READ_ONLY, title="Get site bandwidth")
     async def get_site_bandwidth(
         site_name: Annotated[str, Field(description="Name of the site")],
         ctx: Context,
@@ -731,7 +731,7 @@ def register_site_tools(mcp: FastMCP) -> None:
             "billing_enabled": bw.get("billingEnabled"),
         }
 
-    @mcp.tool(annotations=READ_ONLY)
+    @mcp.tool(annotations=READ_ONLY, title="Get site analytics")
     async def get_site_analytics(
         site_name: Annotated[str, Field(description="Name of the site")],
         ctx: Context,
@@ -792,7 +792,7 @@ def register_site_tools(mcp: FastMCP) -> None:
         }
 
     # -------------------------------------------------------- deployments
-    @mcp.tool(annotations=READ_ONLY)
+    @mcp.tool(annotations=READ_ONLY, title="List site deployments")
     async def list_site_deployments(
         site_name: Annotated[str, Field(description="Name of the site")],
         ctx: Context,
@@ -826,7 +826,7 @@ def register_site_tools(mcp: FastMCP) -> None:
         }
 
     # -------------------------------------------------------------- releases
-    @mcp.tool(annotations=READ_ONLY)
+    @mcp.tool(annotations=READ_ONLY, title="List site releases")
     async def list_site_releases(
         site_name: Annotated[str, Field(description="Name of the site")],
         ctx: Context,
@@ -878,7 +878,7 @@ def register_site_tools(mcp: FastMCP) -> None:
             "experiment_count": len(experiments),
         }
 
-    @mcp.tool(annotations=READ_ONLY)
+    @mcp.tool(annotations=READ_ONLY, title="Get release details")
     async def get_release_details(
         ctx: Context,
         deployment_id: Annotated[
@@ -917,7 +917,7 @@ def register_site_tools(mcp: FastMCP) -> None:
             raise fail(exc)
 
     # --------------------------------------------------------- custom domain
-    @mcp.tool(annotations=READ_ONLY)
+    @mcp.tool(annotations=READ_ONLY, title="Get site custom domain")
     async def get_site_custom_domain(
         site_name: Annotated[str, Field(description="Name of the site")],
         ctx: Context,
@@ -939,7 +939,7 @@ def register_site_tools(mcp: FastMCP) -> None:
         }
 
     # ------------------------------------------------ traffic monitoring
-    @mcp.tool(annotations=WRITE)
+    @mcp.tool(annotations=WRITE, title="Enable site traffic monitoring")
     async def enable_site_traffic_monitoring(
         site_name: Annotated[str, Field(description="Name of the site")],
         ctx: Context,
@@ -963,7 +963,7 @@ def register_site_tools(mcp: FastMCP) -> None:
         }
 
     # --------------------------------------------------------- secret management
-    @mcp.tool(annotations=WRITE)
+    @mcp.tool(annotations=WRITE, title="Add Git secret")
     async def add_git_secret(
         name: Annotated[str, Field(description="A short label for this secret, e.g. 'my-github-pat'. Used as pat_secret_name in deploy_site.")],
         registry_type: Annotated[
@@ -998,7 +998,7 @@ def register_site_tools(mcp: FastMCP) -> None:
             "note": "Use this name as pat_secret_name when calling deploy_site or inspect_repository.",
         }
 
-    @mcp.tool(annotations=DESTRUCTIVE)
+    @mcp.tool(annotations=DESTRUCTIVE, title="Delete Git secret")
     async def delete_git_secret(
         name: Annotated[str, Field(description="Name of the secret to delete (from list_git_secrets)")],
         ctx: Context,

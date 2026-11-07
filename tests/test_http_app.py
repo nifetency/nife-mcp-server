@@ -19,18 +19,17 @@ class FakeHTTP:
 
     def __init__(self):
         self.calls = []
+        self.is_closed = False
 
-    async def post(self, url, json=None, headers=None, timeout=None):
-        self.calls.append({"url": url, "json": json, "headers": headers})
-        q = (json or {}).get("query", "")
+    async def request(self, method, url, params=None, json=None, headers=None, timeout=None):
+        self.calls.append({"url": url, "method": method, "json": json, "headers": headers})
+        q = (json or {}).get("query", "") if isinstance(json, dict) else ""
         if "getUserPermissionsByPlan" in q:
             data = {"getUserPermissionsByPlan": {"sourceBuild": True}}
         elif "mutation S3Deployment" in q:
             data = {"S3Deployment": "Deployment started"}
         elif "mutation RedeployS3" in q:
             data = {"RedeployS3": "Redeploy started"}
-        elif "getS3deployments(" in q:
-            data = {"getS3deployments": {"s3AppName": "my-site", "status": "BUILDING", "appUrl": None}}
         elif "organizations" in q:
             data = {"organizations": {"nodes": [
                 {"id": "o1", "parentId": None, "name": "Acme", "slug": "acme", "type": "personal"},
@@ -121,9 +120,13 @@ def test_tools_listed(client):
     by_name = {t["name"]: t for t in r.json()["result"]["tools"]}
     assert by_name["list_organizations"]["annotations"]["readOnlyHint"] is True
     assert by_name["redeploy_site"]["annotations"]["destructiveHint"] is True
-    # tokens must never be tool parameters
+    # tokens must never be tool parameters. add_git_secret is the one deliberate
+    # exception: storing a PAT is its purpose, and the value is never returned.
     for t in by_name.values():
-        assert "token" not in " ".join(t["inputSchema"].get("properties", {})).lower().replace("pat_secret_name", "")
+        params = " ".join(t["inputSchema"].get("properties", {})).lower().replace("pat_secret_name", "")
+        if t["name"] == "add_git_secret":
+            params = params.replace("token", "")
+        assert "token" not in params, t["name"]
 
 
 def test_list_organizations_forwards_callers_header_and_hides_suborgs(client, fake):

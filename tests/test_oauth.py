@@ -1,6 +1,7 @@
-"""OAuth shim tests: discovery, DCR, authorize -> poll -> token with PKCE (backend stubbed)."""
+"""OAuth shim tests: discovery, DCR, authorize -> dashboard callback -> token with PKCE."""
 import base64
 import hashlib
+import html as html_lib
 import json
 import time
 from urllib.parse import parse_qs, urlsplit
@@ -29,22 +30,6 @@ def client():
     return TestClient(app)  # no lifespan needed: OAuth routes don't use the MCP session manager
 
 
-@pytest.fixture()
-def backend(monkeypatch):
-    state = {"token": ""}
-
-    async def create():
-        return "sess-1", "https://app.nife.io/login?id=sess-1"
-
-    async def session_token(sid):
-        assert sid == "sess-1"
-        return state["token"]
-
-    monkeypatch.setattr(oauth, "_create_session", create)
-    monkeypatch.setattr(oauth, "_session_token", session_token)
-    return state
-
-
 def _register(client):
     r = client.post("/register", json={"redirect_uris": [REDIRECT], "client_name": "Claude"})
     assert r.status_code == 201, r.text
@@ -58,8 +43,10 @@ def _authorize(client, cid, **over):
     return client.get("/authorize", params=params, follow_redirects=False)
 
 
-def _txn(html):
-    return json.loads(html.split("const txn = ")[1].split(";")[0])
+def _txn(page_html):
+    """The 'Sign in to Nife' button href carries ?callback=...&state=<sealed txn>."""
+    href = page_html.split('class="btn" href="')[1].split('"')[0]
+    return parse_qs(urlsplit(html_lib.unescape(href)).query)["state"][0]
 
 
 def test_discovery(client):
@@ -88,19 +75,21 @@ def test_register_rejects_foreign_redirect(client):
     assert r.status_code == 400 and r.json()["error"] == "invalid_redirect_uri"
 
 
-def test_full_flow(client, backend):
+def _finish_login(client, txn, token):
+    """Simulate the dashboard redirecting back after a successful login."""
+    r = client.get("/oauth/callback", params={"token": token, "state": txn}, follow_redirects=False)
+    assert r.status_code == 302, r.text
+    return r.headers["location"]
+
+
+def test_full_flow(client):
     cid = _register(client)
     page = _authorize(client, cid)
-    assert page.status_code == 200 and "https://app.nife.io/login?id=sess-1" in page.text
+    assert page.status_code == 200
     txn = _txn(page.text)
 
-    # user has not signed in yet
-    assert client.get("/oauth/poll", params={"txn": txn}).json() == {"pending": True}
-
-    # dashboard completes the cli_session with the user's token
     nife_token = _jwt(time.time() + 3600)
-    backend["token"] = nife_token
-    redirect = client.get("/oauth/poll", params={"txn": txn}).json()["redirect"]
+    redirect = _finish_login(client, txn, nife_token)
     sp = urlsplit(redirect)
     assert f"{sp.scheme}://{sp.netloc}{sp.path}" == REDIRECT
     qs = parse_qs(sp.query)
@@ -114,17 +103,16 @@ def test_full_flow(client, backend):
     assert 0 < body["expires_in"] <= 3600
 
 
-def test_token_rejects_wrong_verifier(client, backend):
+def test_token_rejects_wrong_verifier(client):
     cid = _register(client)
     txn = _txn(_authorize(client, cid).text)
-    backend["token"] = "tok-user-A"
-    code = parse_qs(urlsplit(client.get("/oauth/poll", params={"txn": txn}).json()["redirect"]).query)["code"][0]
+    code = parse_qs(urlsplit(_finish_login(client, txn, "tok-user-A")).query)["code"][0]
     r = client.post("/token", data={"grant_type": "authorization_code", "code": code,
                                     "redirect_uri": REDIRECT, "client_id": cid, "code_verifier": "x" * 64})
     assert r.status_code == 400 and r.json()["error"] == "invalid_grant"
 
 
-def test_authorize_requires_pkce_and_valid_redirect(client, backend):
+def test_authorize_requires_pkce_and_valid_redirect(client):
     cid = _register(client)
     r = _authorize(client, cid, code_challenge_method="plain")
     assert r.status_code == 302 and "error=invalid_request" in r.headers["location"]
