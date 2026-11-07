@@ -21,6 +21,7 @@ from nife_mcp_server.domain_tools import DOMAIN_INSTRUCTIONS, register_domain_to
 from nife_mcp_server.http_auth import AuthMiddleware
 from nife_mcp_server.nife_api import VERSION
 from nife_mcp_server.oauth import register_oauth_routes
+from nife_mcp_server.ops_tools import OPS_INSTRUCTIONS, register_ops_tools
 from nife_mcp_server.site_tools import SERVER_INSTRUCTIONS, register_site_tools
 
 logging.basicConfig(
@@ -35,7 +36,7 @@ PORT = int(os.environ.get("PORT", "8000"))
 
 mcp = FastMCP(
     "nife",
-    instructions=SERVER_INSTRUCTIONS + APP_INSTRUCTIONS + DOMAIN_INSTRUCTIONS,
+    instructions=SERVER_INSTRUCTIONS + APP_INSTRUCTIONS + DOMAIN_INSTRUCTIONS + OPS_INSTRUCTIONS,
     host="0.0.0.0",
     port=PORT,
     stateless_http=True,   # no sessions: each request carries its own credentials
@@ -44,6 +45,7 @@ mcp = FastMCP(
 register_site_tools(mcp)
 register_app_tools(mcp)
 register_domain_tools(mcp)
+register_ops_tools(mcp)
 register_oauth_routes(mcp)
 
 

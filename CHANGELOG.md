@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- NERO (AI SRE) tools: health insights, incidents and post-mortems, root cause analysis, alerts (acknowledge and resolve), anomalies, failure predictions, SLO status, health report, knowledge base search
+- FinOps tools: spending overview, usage stats, billing cycles and items, invoices, cloud billing summary, ranked cost recommendations, cost forecast, cost anomalies
+- Ownership checks: org-keyed queries verify organization membership; alert and billing cycle ids are checked against the caller's own lists before any change or lookup
+
+### Fixed
+- Package version is read from one place (`__version__`) so `pyproject.toml`, the health endpoint and the client agree
+
 ## [1.0.0] - 2025-11-09
 
 ### Added
