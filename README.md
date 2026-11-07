@@ -2,7 +2,7 @@
 
 <div align="center">
 
-[![Python](https://img.shields.io/badge/python-3.8%2B-blue.svg)](https://www.python.org/downloads/)
+[![Python](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Downloads](https://pepy.tech/badge/nife-mcp-server)](https://pepy.tech/project/nife-mcp-server)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
@@ -156,7 +156,7 @@ Your Nife.io integration is now active! 🎉
 
 ## 📚 Documentation
 
-- [Quick Start Guide](QUICKSTART.md) - Get started in 5 minutes
+- [Quick Start](#-quick-start) - Get started in 5 minutes
 - [Hosted connector (URL-based)](HOSTED.md) - Deploy the remote server and connect by URL
 - [API Documentation](ENDPOINT_GUIDE.md) - Complete API reference
 - [Release Guide](RELEASE_GUIDE.md) - For contributors and maintainers
@@ -267,10 +267,14 @@ nife-mcp-server/
 │   └── nife_mcp_server/
 │       ├── intelligent_main.py  # Main server logic
 │       ├── schema_manager.py    # GraphQL schema handling
+│       ├── http_app.py          # Hosted (Streamable HTTP) connector
+│       ├── http_auth.py         # Auth for the hosted connector
+│       ├── oauth.py             # OAuth support
+│       ├── site_tools.py        # Additional site tools
 │       └── routes/
 │           └── mcp.py          # MCP route handlers
 ├── tests/                      # Test suite
-├── docs/                       # Documentation
+├── Dockerfile                  # Container image for the hosted server
 └── bin/                        # Executable scripts
 ```
 

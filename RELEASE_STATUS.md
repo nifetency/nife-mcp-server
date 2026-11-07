@@ -1,16 +1,16 @@
 # 🎉 Nife MCP Server - Release Status
 
-**Version:** 1.0.0  
+**Version:** 1.0.4  
 **Status:** ✅ Ready for Release  
-**Date:** November 9, 2025
+**Date:** November 7, 2026
 
 ---
 
 ## ✅ What's Ready
 
 ### 📦 Package Files Built
-- ✅ `dist/nife_mcp_server-1.0.0-py3-none-any.whl` - Python wheel
-- ✅ `dist/nife_mcp_server-1.0.0.tar.gz` - Source distribution
+- ✅ `dist/nife_mcp_server-1.0.4-py3-none-any.whl` - Python wheel
+- ✅ `dist/nife_mcp_server-1.0.4.tar.gz` - Source distribution
 
 ### 📄 Configuration Files Complete
 - ✅ `setup.py` - Python package configuration
@@ -23,7 +23,7 @@
 - ✅ `README.md` - Main documentation
 - ✅ `RELEASE_GUIDE.md` - Comprehensive release instructions
 - ✅ `CHANGELOG.md` - Version history
-- ✅ `QUICKSTART.md` - Quick start guide
+- ✅ `HOSTED.md` - Hosted (URL-based) connector guide
 - ✅ `ENDPOINT_GUIDE.md` - API endpoints reference
 - ✅ `LICENSE` - MIT License
 
@@ -72,7 +72,7 @@ pip install build twine
 python -m build
 
 # Test the build locally
-pip install dist/nife_mcp_server-1.0.0-py3-none-any.whl
+pip install dist/nife_mcp_server-1.0.4-py3-none-any.whl
 
 # Upload to PyPI
 python -m twine upload dist/*
@@ -114,7 +114,7 @@ npm publish --access public
 **After publishing:**
 ```bash
 # Users install with:
-npx @nife/mcp-server
+npx @nifelabs/mcp-server
 ```
 
 **Claude Desktop config:**
@@ -123,7 +123,7 @@ npx @nife/mcp-server
   "mcpServers": {
     "nife": {
       "command": "npx",
-      "args": ["-y", "@nife/mcp-server"],
+      "args": ["-y", "@nifelabs/mcp-server"],
       "env": {
         "NIFE_ACCESS_TOKEN": "your_token_here"
       }
@@ -136,12 +136,12 @@ npx @nife/mcp-server
 
 ```bash
 # Create and push tag
-git tag -a v1.0.0 -m "Release v1.0.0"
-git push origin v1.0.0
+git tag -a v1.0.4 -m "Release v1.0.4"
+git push origin v1.0.4
 
 # Using GitHub CLI
-gh release create v1.0.0 \
-  --title "Nife MCP Server v1.0.0" \
+gh release create v1.0.4 \
+  --title "Nife MCP Server v1.0.4" \
   --notes-file CHANGELOG.md \
   dist/*
 
@@ -162,7 +162,7 @@ pip install -r requirements.txt
 ## 📋 Pre-Release Checklist
 
 ### Critical
-- [x] Version 1.0.0 set in all files
+- [x] Version 1.0.4 set in pyproject.toml and package.json
 - [x] Python packages built
 - [x] NPM package configured
 - [x] README.md complete
@@ -216,7 +216,7 @@ For maximum reach and ease of use:
 ### Test PyPI Package Locally
 ```bash
 # Install from local wheel
-pip install dist/nife_mcp_server-1.0.0-py3-none-any.whl
+pip install dist/nife_mcp_server-1.0.4-py3-none-any.whl
 
 # Test the command
 nife-mcp-server
@@ -234,7 +234,7 @@ npm install -g .
 nife-mcp-server
 
 # Uninstall
-npm uninstall -g @nife/mcp-server
+npm uninstall -g @nifelabs/mcp-server
 ```
 
 ### Test with Claude Desktop
@@ -249,12 +249,12 @@ npm uninstall -g @nife/mcp-server
 
 ### Package Names
 - **PyPI**: `nife-mcp-server`
-- **NPM**: `@nife/mcp-server`
+- **NPM**: `@nifelabs/mcp-server`
 - **GitHub**: `nife-io/nife-mcp-server`
 
 ### Package URLs (After Publishing)
 - **PyPI**: https://pypi.org/project/nife-mcp-server/
-- **NPM**: https://www.npmjs.com/package/@nife/mcp-server
+- **NPM**: https://www.npmjs.com/package/@nifelabs/mcp-server
 - **GitHub**: https://github.com/nife-io/nife-mcp-server
 
 ### Installation Commands
@@ -263,9 +263,9 @@ npm uninstall -g @nife/mcp-server
 pip install nife-mcp-server
 
 # NPM
-npm install -g @nife/mcp-server
+npm install -g @nifelabs/mcp-server
 # or
-npx @nife/mcp-server
+npx @nifelabs/mcp-server
 
 # GitHub
 git clone https://github.com/nife-io/nife-mcp-server.git
@@ -327,7 +327,7 @@ python -m twine upload --repository testpypi dist/*
 # Initialize if needed
 git init
 git add .
-git commit -m "Release v1.0.0"
+git commit -m "Release v1.0.4"
 ```
 
 ---
@@ -371,6 +371,6 @@ Good luck with your release! 🚀
 
 ---
 
-**Last Updated**: November 9, 2025  
-**Version**: 1.0.0  
+**Last Updated**: November 7, 2026  
+**Version**: 1.0.4  
 **Status**: Production Ready ✅
