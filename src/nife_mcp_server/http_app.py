@@ -16,6 +16,7 @@ from mcp.server.fastmcp import FastMCP
 from starlette.requests import Request
 from starlette.responses import JSONResponse
 
+from nife_mcp_server.app_tools import APP_INSTRUCTIONS, register_app_tools
 from nife_mcp_server.http_auth import AuthMiddleware
 from nife_mcp_server.nife_api import VERSION
 from nife_mcp_server.oauth import register_oauth_routes
@@ -33,13 +34,14 @@ PORT = int(os.environ.get("PORT", "8000"))
 
 mcp = FastMCP(
     "nife",
-    instructions=SERVER_INSTRUCTIONS,
+    instructions=SERVER_INSTRUCTIONS + APP_INSTRUCTIONS,
     host="0.0.0.0",
     port=PORT,
     stateless_http=True,   # no sessions: each request carries its own credentials
     json_response=True,
 )
 register_site_tools(mcp)
+register_app_tools(mcp)
 register_oauth_routes(mcp)
 
 

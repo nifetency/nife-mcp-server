@@ -47,7 +47,31 @@ Limits: no refresh tokens (when the Nife token expires, `/mcp` answers 401 and C
 to sign in again), and authorization codes are short-lived (2 min) and PKCE-bound but not
 single-use.
 
-## Tools (v1: static sites)
+## Tools (v1: static sites, v1.1: container apps)
+
+Container apps and deployments (curated over `apps.graphqls` / `deploy.graphqls`):
+
+| Tool | Purpose |
+|---|---|
+| `list_apps` / `get_app` | Inventory and full configuration (env var names only) |
+| `get_app_status` | Live health: deployment progress, healthy/unhealthy instances, crash-loop hints |
+| `list_app_releases` | Release history; versions feed `revert_app_release` |
+| `get_app_logs` | Recent log lines of running instances (not a search) |
+| `resume_app` | Resume a paused app |
+| `restart_app`, `pause_app`, `scale_app`, `redeploy_app_image`, `revert_app_release`, `set_app_env` | Change a live app (marked destructive) |
+| `delete_app` | Permanent; needs the app name twice |
+
+Not yet: creating a new app (`createApp` + `deployImage` / `upsertAndDeployApp`), canary and blue-green
+for apps, volumes, custom domains.
+
+`set_app_env` note: the backend replaces the whole env set on every update, so the tool reads the
+current values server-side, merges, and redeploys the current image. It refuses to run if it cannot
+read the existing variables (override: `allow_replace_all`). New values are encrypted like the
+dashboard does (needs `NIFE_ENV_ENCRYPTION_KEY`; without it they are sent as plaintext), existing
+values pass through as stored. Approval and billing gates in the
+backend (`RedeployImage`) can hold or reject a rollout; the error is passed through.
+
+Static sites:
 
 | Tool | Purpose |
 |---|---|
@@ -140,4 +164,5 @@ pytest
 * Refresh tokens / dedicated revocable MCP tokens for the OAuth flow, and OAuth for
   non-Claude clients that need custom redirect schemes.
 * Presigned upload tool for local archives.
-* More tool groups (apps, deployments, logs), each curated rather than auto-generated.
+* More tool groups (logs and metrics search, domains and env vars, volumes, databases, clusters), each curated rather than auto-generated.
+* Container app creation (`upsertAndDeployApp`).

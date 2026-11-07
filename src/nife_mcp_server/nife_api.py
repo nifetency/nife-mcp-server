@@ -596,6 +596,257 @@ class NifeAPI:
             return {"exists": False}
         return data if isinstance(data, dict) else {"exists": False}
 
+    # ------------------------------------------------- container apps (GraphQL)
+    # Operation names and fields mirror nife.io/api/apps.graphqls and deploy.graphqls.
+    async def apps(
+        self, status: Optional[str] = None, first: Optional[int] = None,
+        org_slug: Optional[str] = None,
+    ) -> List[Dict[str, Any]]:
+        data = await self.graphql(
+            """query GetApps($type: String, $first: Int, $orgSlug: String) {
+                 apps(type: $type, first: $first, orgSlug: $orgSlug) {
+                   nodes {
+                     id name status deployed hostname appUrl version imageName replicas
+                     organizationId organizationName workloadType deploymentType createdAt
+                   }
+                 }
+               }""",
+            {"type": status, "first": first, "orgSlug": org_slug},
+        )
+        return (data.get("apps") or {}).get("nodes") or []
+
+    async def app(self, name: str) -> Optional[Dict[str, Any]]:
+        """Full app record. Also the ownership check: made with the caller's own token."""
+        data = await self.graphql(
+            """query GetApp($name: String) {
+                 app(name: $name) {
+                   id name status deployed hostname appUrl version imageName port replicas
+                   organizationId organizationName subOrganizationName businessUnitName
+                   deploymentTime buildTime buildLogsUrl sourceUrl createdAt
+                   deploymentType workloadType resourceType cronSchedule
+                   envArgs envMapArgs
+                   regions { code name }
+                   vmSize { name cPUCores memoryGb }
+                   autoscaling { enabled minCount maxCount }
+                   clusterDetails { region_code regionName cloudType clusterType }
+                 }
+               }""",
+            {"name": name},
+        )
+        return data.get("app") or None
+
+    async def app_status(self, name: str) -> Optional[Dict[str, Any]]:
+        data = await self.graphql(
+            """query GetAppStatus($name: String) {
+                 app(name: $name) {
+                   name status deployed version appUrl
+                   deploymentStatus {
+                     status description inProgress successful version
+                     desiredCount placedCount healthyCount unhealthyCount
+                   }
+                   allocations {
+                     idShort version region status desiredStatus healthy failed restarts
+                     createdAt
+                   }
+                 }
+               }""",
+            {"name": name},
+        )
+        return data.get("app") or None
+
+    async def app_releases(self, name: str, first: int) -> List[Dict[str, Any]]:
+        data = await self.graphql(
+            """query GetAppReleases($name: String, $first: Int) {
+                 app(name: $name) {
+                   releases(first: $first) {
+                     nodes {
+                       id version stable inProgress status reason description image port
+                       deploymentStrategy createdAt
+                     }
+                   }
+                 }
+               }""",
+            {"name": name, "first": first},
+        )
+        return (((data.get("app") or {}).get("releases") or {}).get("nodes")) or []
+
+    async def app_logs(self, name: str) -> List[Dict[str, Any]]:
+        data = await self.graphql(
+            """query GetAppLogs($name: String) {
+                 app(name: $name) {
+                   allocations(showCompleted: false) {
+                     idShort region status
+                     recentLogs { timestamp message level instance region }
+                   }
+                 }
+               }""",
+            {"name": name},
+        )
+        return (data.get("app") or {}).get("allocations") or []
+
+    async def restart_app(self, app_id: str) -> Any:
+        data = await self.graphql(
+            """mutation RestartApp($input: RestartAppInput!) {
+                 restartApp(input: $input) { app { id name status } }
+               }""",
+            {"input": {"appId": app_id}},
+            timeout=120.0,
+        )
+        return data.get("restartApp")
+
+    async def pause_app(self, app_id: str, region_code: str) -> Any:
+        data = await self.graphql(
+            """mutation PauseApp($input: PauseAppInput!) {
+                 pauseApp(input: $input) { app { id name status } }
+               }""",
+            {"input": {"appId": app_id, "regionCode": region_code}},
+            timeout=120.0,
+        )
+        return data.get("pauseApp")
+
+    async def resume_app(self, app_id: str, region_code: str) -> Any:
+        data = await self.graphql(
+            """mutation ResumeApp($input: ResumeAppInput!) {
+                 resumeApp(input: $input) { app { id name status } }
+               }""",
+            {"input": {"appId": app_id, "regionCode": region_code}},
+            timeout=120.0,
+        )
+        return data.get("resumeApp")
+
+    async def delete_app(self, app_id: str, region_code: str) -> Any:
+        data = await self.graphql(
+            """mutation DeleteApp($appId: ID!, $regionCode: String!) {
+                 deleteApp(appId: $appId, regionCode: $regionCode) { id name status }
+               }""",
+            {"appId": app_id, "regionCode": region_code},
+            timeout=180.0,
+        )
+        return data.get("deleteApp")
+
+    async def redeploy_image(self, variables: Dict[str, Any]) -> Any:
+        data = await self.graphql(
+            """mutation RedeployImage($input: RedeployImageInput!) {
+                 redeployImage(input: $input) {
+                   success message deploymentId previousImage newImage
+                   release { id version status }
+                 }
+               }""",
+            {"input": variables},
+            timeout=300.0,
+        )
+        return data.get("redeployImage")
+
+    async def revert_deployment(self, variables: Dict[str, Any]) -> Any:
+        data = await self.graphql(
+            """mutation RevertDeployment($input: RevertDeploymentInput!) {
+                 revertDeployment(input: $input) {
+                   success message deploymentId previousImage newImage
+                   release { id version status }
+                 }
+               }""",
+            {"input": variables},
+            timeout=300.0,
+        )
+        return data.get("revertDeployment")
+
+    async def patch_resources(self, variables: Dict[str, Any]) -> Any:
+        data = await self.graphql(
+            """mutation PatchResources($input: PatchResourcesInput!) {
+                 patchResourcesAndReplicas(input: $input) {
+                   success message appId cpuLimit memoryLimit cpuRequest memoryRequest replicas
+                 }
+               }""",
+            {"input": variables},
+            timeout=180.0,
+        )
+        return data.get("patchResourcesAndReplicas")
+
+    # ------------------------------------------------- app creation (dashboard flow)
+    async def available_clusters(self) -> List[Dict[str, Any]]:
+        data = await self.graphql(
+            """query GetAvailabilityCluster($isLatency: String, $first: Int) {
+                 getAvailabilityCluster(isLatency: $isLatency, first: $first) {
+                   nodes { id name regionCode clustertype }
+                 }
+               }""",
+            {"isLatency": "0", "first": 50},
+        )
+        return (data.get("getAvailabilityCluster") or {}).get("nodes") or []
+
+    async def org_regions(self, org_id: str) -> List[Dict[str, Any]]:
+        """The organization's region entries (regCode, isDefault, ...), or []."""
+        data = await self.graphql(
+            """query GetOrganizationRegions {
+                 organizations { nodes { id region { regCode isDefault regionName clusterType } } }
+               }"""
+        )
+        for n in (data.get("organizations") or {}).get("nodes") or []:
+            if n.get("id") == org_id:
+                return n.get("region") or []
+        return []
+
+    async def create_app(self, input_: Dict[str, Any]) -> Any:
+        data = await self.graphql(
+            """mutation CreateApp($input: CreateAppInput!) {
+                 createApp(input: $input) { app { id name status hostname appUrl } }
+               }""",
+            {"input": input_},
+            timeout=120.0,
+        )
+        return (data.get("createApp") or {}).get("app")
+
+    async def configure_regions(self, app_name: str, region_codes: List[str]) -> Any:
+        data = await self.graphql(
+            """mutation ConfigureRegions($input: ConfigureRegionsInput) {
+                 configureRegions(input: $input) { id name }
+               }""",
+            {"input": {"appId": app_name, "allowRegions": region_codes}},
+            timeout=120.0,
+        )
+        return data.get("configureRegions")
+
+    async def update_app(self, input_: Dict[str, Any]) -> Any:
+        data = await self.graphql(
+            """mutation UpdateApp($input: UpdateAppInput!) {
+                 updateApp(input: $input) { id name status replicas }
+               }""",
+            {"input": input_},
+            timeout=180.0,
+        )
+        return data.get("updateApp")
+
+    async def app_definition(self, name: str) -> Optional[Dict[str, Any]]:
+        data = await self.graphql(
+            """query AppQueryConfigDefinition($name: String!) {
+                 app(name: $name) { config { definition } }
+               }""",
+            {"name": name},
+        )
+        return (((data.get("app") or {}).get("config") or {}).get("definition")) or None
+
+    async def deploy_image(self, input_: Dict[str, Any]) -> Any:
+        data = await self.graphql(
+            """mutation DeployImage($input: DeployImageInput!) {
+                 deployImage(input: $input) { release { id version status reason } }
+               }""",
+            {"input": input_},
+            timeout=300.0,
+        )
+        return (data.get("deployImage") or {}).get("release")
+
+    async def link_registry_secret(self, app_name: str, secret_name: str) -> Any:
+        """Attach a stored registry secret to an app so its private image can be pulled
+        (the dashboard's UPDATE_REGISTRY_ID_TO_APP). Only the secret NAME is sent."""
+        data = await self.graphql(
+            """mutation UpdateRegistry($appName: String!, $name: String!) {
+                 updateRegistryIdToApp(appName: $appName, name: $name) { message }
+               }""",
+            {"appName": app_name, "name": secret_name},
+            timeout=60.0,
+        )
+        return data.get("updateRegistryIdToApp")
+
     # --------------------------------------------------------------- PAT secrets
     async def list_pats(self) -> List[Dict[str, Any]]:
         """List the user's stored PATs (type + id only, never the token value)."""
