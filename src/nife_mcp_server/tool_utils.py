@@ -8,7 +8,11 @@ from mcp.types import ToolAnnotations
 from nife_mcp_server import site_helpers as h
 from nife_mcp_server.nife_api import NifeAPI, NifeAPIError
 
-READ_ONLY = ToolAnnotations(readOnlyHint=True, openWorldHint=True)
+# Explicit hints on all four flags: directory reviewers (and MCP clients) should not
+# have to rely on spec defaults.
+READ_ONLY = ToolAnnotations(
+    readOnlyHint=True, destructiveHint=False, idempotentHint=True, openWorldHint=True
+)
 WRITE = ToolAnnotations(
     readOnlyHint=False, destructiveHint=False, idempotentHint=False, openWorldHint=True
 )
