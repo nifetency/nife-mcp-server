@@ -19,9 +19,9 @@ from urllib.parse import quote
 
 import httpx
 
-logger = logging.getLogger(__name__)
+from nife_mcp_server import __version__ as VERSION  # single source of truth for the version
 
-VERSION = "1.2.0"
+logger = logging.getLogger(__name__)
 
 GRAPHQL_URL = os.environ.get("NIFE_GRAPHQL_URL", "https://api.nife.io/graphql")
 # express-backend: /api/github-upload-to-s3, /api/nifex/*, /api/uptime/*, custom-domain routes
@@ -595,6 +595,100 @@ class NifeAPI:
         except NifeAPIError:
             return {"exists": False}
         return data if isinstance(data, dict) else {"exists": False}
+
+    # ---------------------------------------------- custom-domain management
+    # Mirrors nife-dashboard/src/services/rest/custom-domain.rest.ts. Sites and apps both use the
+    # express-backend REST routes; apps additionally need an ingress rule (GraphQL).
+    async def _express_action(
+        self, method: str, path: str, *, json: Any = None, timeout: float = 60.0
+    ) -> Any:
+        """Mutating express-backend call. Some routes answer with an empty body, so a
+        non-JSON success is returned as {} instead of an error."""
+        resp = await send(
+            method, f"{EXPRESS_URL}{path}", json=json, headers=self._headers, timeout=timeout
+        )
+        _check_status(resp)
+        try:
+            return resp.json()
+        except ValueError:
+            return {}
+
+    async def app_domain_status(self, key: str) -> Dict[str, Any]:
+        """Custom-domain record of an app ({'exists': False} when none). Authentication and
+        network failures are raised, never reported as 'no domain'."""
+        resp = await send(
+            "GET", f"{EXPRESS_URL}/check-custom-domain/{quote(key, safe='')}",
+            headers=self._headers, timeout=15.0,
+        )
+        if resp.status_code == 404:
+            return {"exists": False}
+        _check_status(resp)
+        data = _json(resp)
+        return data if isinstance(data, dict) else {"exists": False}
+
+    async def sync_dns_site(self, domain: str, bucket: str) -> Any:
+        return await self._express_action(
+            "POST", "/sync-dns-record-site/", json={"domain_name": domain, "bucket_name": bucket}
+        )
+
+    async def delete_site_domain(self, bucket: str) -> Any:
+        return await self._express_action(
+            "DELETE", "/sync-dns-record-site/", json={"bucket_name": bucket}
+        )
+
+    async def sync_dns_app(self, domain: str, elb_url: str, app_name: str) -> Any:
+        # The backend keys this route by app NAME, passed in the field called appId.
+        return await self._express_action(
+            "POST", "/sync-dns-record-app/",
+            json={"customDomainName": domain, "urldata": elb_url, "appId": app_name},
+        )
+
+    async def delete_app_domain(self, key: str) -> Any:
+        return await self._express_action("DELETE", f"/delete-custom-domain/{quote(key, safe='')}")
+
+    async def elb_url(self, app_name: str) -> str:
+        data = await self.graphql(
+            """query ElbUrlQuery($appName: String) {
+                 getElbUrl(input: { appName: $appName }) { elbUrl }
+               }""",
+            {"appName": app_name},
+        )
+        url = (data.get("getElbUrl") or {}).get("elbUrl")
+        if not url:
+            raise NifeAPIError("Could not determine the app's load balancer address.")
+        return url
+
+    async def app_ingress_info(self, name: str) -> Dict[str, Any]:
+        """What the ingress rule needs: the organization (namespace) and the app definition (port)."""
+        data = await self.graphql(
+            """query AppIngressInfo($name: String) {
+                 app(name: $name) { id organization { id slug name } config { definition } }
+               }""",
+            {"name": name},
+        )
+        return data.get("app") or {}
+
+    async def add_ingress_rule(
+        self, *, app_name: str, namespace: str, hosts: List[str],
+        service_name: str, service_port: int,
+    ) -> Dict[str, Any]:
+        data = await self.graphql(
+            """mutation AddIngressRuleMutation(
+                 $appName: String! $namespace: String! $newHosts: [String!]!
+                 $serviceName: String! $servicePort: Int!
+               ) {
+                 addIngressRule(input: {
+                   appName: $appName namespace: $namespace newHosts: $newHosts
+                   serviceName: $serviceName servicePort: $servicePort
+                 }) { success message addedHosts }
+               }""",
+            {
+                "appName": app_name, "namespace": namespace, "newHosts": hosts,
+                "serviceName": service_name, "servicePort": service_port,
+            },
+            timeout=120.0,
+        )
+        return data.get("addIngressRule") or {}
 
     # ------------------------------------------------- container apps (GraphQL)
     # Operation names and fields mirror nife.io/api/apps.graphqls and deploy.graphqls.

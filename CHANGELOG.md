@@ -62,6 +62,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Custom-domain tools for the hosted server: `get_domain_dns_instructions`,
+  `add_site_custom_domain`, `remove_site_custom_domain`, `get_app_custom_domain`,
+  `add_app_custom_domain` (load balancer lookup, DNS sync and ingress rule in one call) and
+  `remove_app_custom_domain`. Removals require the domain name as `confirm_domain`.
+
 ### Planned
 - GraphQL subscription support
 - Rate limiting

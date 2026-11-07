@@ -20,6 +20,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # Import schema manager and GraphQL client
+from nife_mcp_server import __version__
 from nife_mcp_server.schema_manager import SchemaManager
 from nife_mcp_server.client import NifeGraphQLClient
 
@@ -490,7 +491,7 @@ class IntelligentNifeMCPServer:
         return {
             "status": "healthy" if self.ready else "not_ready",
             "server": "intelligent-nife-mcp-server",
-            "version": "2.0.0-intelligent",
+            "version": __version__,
             "schema_loaded": self.schema_manager.schema_loaded,
             "tools_count": len(self.tools),
             "queries_count": len(self.schema_manager.queries_cache),
@@ -518,7 +519,7 @@ class IntelligentNifeMCPServer:
                         "capabilities": {"tools": {}},
                         "serverInfo": {
                             "name": "intelligent-nife-mcp-server",
-                            "version": "2.0.0-intelligent"
+                            "version": __version__
                         }
                     }
                 }
