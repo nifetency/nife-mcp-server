@@ -162,6 +162,35 @@ Your Nife.io integration is now active! 🎉
 - [Release Guide](RELEASE_GUIDE.md) - For contributors and maintainers
 - [Contributing](CONTRIBUTING.md) - How to contribute
 
+##  Hosted connector tools: reliability and cost
+
+The hosted connector (`nife-mcp-http`) adds curated tools on top of the site, app and custom-domain tools. They are not part of the stdio server (`intelligent_main.py`), which builds its tools from the GraphQL schema. Every call is made with the caller's own token. Organization-keyed tools check membership first, and alert, billing cycle and recommendation ids are checked against the caller's own lists before use.
+
+**Reliability (NERO)**
+
+| Tool | What it does |
+|------|--------------|
+| `get_health_insights` | Overall health, open incidents, anomalies, predictions and actions. Start here |
+| `list_incidents`, `get_incident` | Incidents and their post-mortems |
+| `get_root_cause_analysis` | AI root cause analysis (slow; `refresh=true` runs a new one) |
+| `list_alerts` | Alerts with status and who handled them |
+| `acknowledge_alert`, `resolve_alert` | Change alert state (confirm with the user first) |
+| `list_anomalies`, `predict_failures` | Detected anomalies and predicted failures |
+| `get_slo_status`, `get_health_report` | SLO and error budget; deep per-service health |
+| `search_knowledge_base` | Past incidents and fixes by error text |
+
+**Cost (FinOps)**
+
+| Tool | What it does |
+|------|--------------|
+| `get_spending_overview`, `get_usage_stats` | Spend against limits; resource usage and cost |
+| `list_billing_cycles`, `get_billing_items`, `list_invoices`, `get_cloud_billing_summary` | Billing detail |
+| `list_cost_recommendations` | Ranked savings opportunities with totals |
+| `get_cost_forecast`, `get_cost_anomalies`, `get_cost_usage_patterns` | Outlook, unusual cost, and what the recommendations rest on |
+| `get_cost_breakdown` | Cost explorer: total grouped by provider, service or region |
+| `search_finops_resources`, `get_finops_resource_stats` | Multi-cloud inventory with monthly cost |
+| `apply_cost_recommendation` | Carries out one recommendation. Previews unless `confirm=true` |
+
 ##  Usage
 
 ### Starting the Server

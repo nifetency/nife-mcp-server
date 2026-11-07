@@ -215,3 +215,79 @@ def month_over_month(stats: Dict[str, Any]) -> Optional[float]:
     if not all(isinstance(v, (int, float)) and not isinstance(v, bool) for v in (this, last)) or last <= 0:
         return None
     return round((this - last) / last * 100, 1)
+
+
+# ------------------------------------------------- FinOps resource inventory and cost explorer
+TAG_KEY_RE = re.compile(r"^[A-Za-z0-9_:/-]{1,64}$")
+GROUP_BY_RE = re.compile(r"^[A-Za-z0-9_.]{1,40}$")
+MAX_GROUP_BY = 3
+
+
+def cap_map(value: Any, limit: int = 30) -> Dict[str, Any]:
+    """First `limit` entries of a mapping; anything that is not a mapping becomes {}."""
+    if not isinstance(value, dict):
+        return {}
+    return dict(list(value.items())[:limit])
+
+
+def build_resource_filters(
+    *, provider: Optional[str] = None, service: Optional[str] = None, region: Optional[str] = None,
+    account: Optional[str] = None, cluster_id: Optional[str] = None, namespace: Optional[str] = None,
+    app_id: Optional[str] = None, tag_key: Optional[str] = None, tag_value: Optional[str] = None,
+) -> List[Dict[str, Any]]:
+    """Equality filters in the shape POST /resources/search takes. Only a fixed set of fields can be
+    filtered on, so the model cannot send arbitrary field paths to the service."""
+    pairs = [
+        ("provider", provider), ("service", service), ("region", region), ("account", account),
+        ("metadata.clusterId", cluster_id), ("metadata.namespace", namespace), ("metadata.appId", app_id),
+    ]
+    filters = [{"field": f, "operator": "=", "value": v} for f, v in pairs if v]
+    if tag_key or tag_value:
+        if not (tag_key and tag_value):
+            raise ValueError("tag_key and tag_value must be given together.")
+        if not TAG_KEY_RE.match(tag_key):
+            raise ValueError("tag_key may only contain letters, digits, '_', '-', ':' and '/'.")
+        filters.append({"field": f"tags.{tag_key}", "operator": "=", "value": tag_value})
+    return filters
+
+
+def check_group_by(values: Optional[List[str]]) -> Optional[List[str]]:
+    if not values:
+        return None
+    if len(values) > MAX_GROUP_BY:
+        raise ValueError(f"group_by takes at most {MAX_GROUP_BY} fields.")
+    out = []
+    for v in values:
+        text = str(v).strip()
+        if not GROUP_BY_RE.match(text):
+            raise ValueError("group_by fields must be short names such as 'provider' or 'service'.")
+        out.append(text)
+    return out
+
+
+def resource_view(r: Dict[str, Any]) -> Dict[str, Any]:
+    meta = r.get("metadata") if isinstance(r.get("metadata"), dict) else {}
+    return {
+        "id": r.get("id"), "resource_id": r.get("resourceId"), "name": r.get("name"),
+        "provider": r.get("provider"), "service": r.get("service"), "region": r.get("region"),
+        "account": r.get("account"), "monthly_cost": money(r.get("cost")),
+        "tags": cap_map(r.get("tags"), 20),
+        "metadata": {k: meta[k] for k in ("clusterId", "namespace", "appId", "resourceType", "vcpu", "memory")
+                     if k in meta},
+        "created_at": r.get("createdAt"),
+    }
+
+
+def breakdown_view(data: Dict[str, Any]) -> Dict[str, Any]:
+    rows = []
+    for row in (data.get("breakdown") or [])[:50]:
+        if not isinstance(row, dict):
+            continue
+        rows.append({
+            "key": row.get("key"), "value": money(row.get("value")),
+            "children": [
+                {"key": c.get("key"), "value": money(c.get("value"))}
+                for c in (row.get("children") or [])[:20] if isinstance(c, dict)
+            ],
+        })
+    return {"total": money(data.get("total")), "breakdown": rows}

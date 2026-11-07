@@ -10,6 +10,7 @@ import functools
 import logging
 import re
 from typing import Annotated, Any, Dict, List, Optional
+from urllib.parse import quote
 
 from mcp.server.fastmcp import Context, FastMCP
 from pydantic import Field
@@ -17,7 +18,7 @@ from pydantic import Field
 from nife_mcp_server import ops_helpers as o
 from nife_mcp_server.nife_api import NifeAPI, NifeAPIError
 from nife_mcp_server.tool_utils import (
-    READ_ONLY, WRITE_IDEMPOTENT, fail, get_api, require_org,
+    DESTRUCTIVE, READ_ONLY, WRITE_IDEMPOTENT, fail, get_api, require_org,
 )
 
 logger = logging.getLogger(__name__)
@@ -37,6 +38,12 @@ Most NERO tools need an organization_id: call list_organizations first.
 Cost: get_spending_overview gives spend against limits. list_cost_recommendations ranks savings
 opportunities; get_cost_forecast and get_cost_anomalies cover the outlook. list_billing_cycles,
 get_billing_items, list_invoices and get_cloud_billing_summary cover billing detail.
+get_cost_breakdown groups cost by provider, service or region. search_finops_resources and
+get_finops_resource_stats show the multi-cloud inventory behind the cost; get_cost_usage_patterns
+shows what the recommendations are based on.
+apply_cost_recommendation carries out one recommendation and may change real infrastructure:
+call it first without confirm to show the user what it would do, and only call it with
+confirm=true after the user has agreed.
 Amounts are reported as the backend returns them and are never estimated.
 """
 
@@ -127,6 +134,19 @@ async def _own_cycle(api: NifeAPI, cycle_id: str) -> Dict[str, Any]:
 
 async def _recommendation_payload(api: NifeAPI) -> Any:
     return await api.finops_get("/ml/recommendations")
+
+
+async def _own_recommendation(api: NifeAPI, rec_id: str) -> Dict[str, Any]:
+    """Recommendation ids are not org-keyed, so prove the id is in the caller's own list first."""
+    data = await _recommendation_payload(api)
+    for raw in o.unwrap_list(data, "recommendations", "data"):
+        if isinstance(raw, dict):
+            rec = o.normalize_recommendation(raw)
+            if rec["id"] == rec_id:
+                return rec
+    raise NifeAPIError(
+        "No cost recommendation with that id was found. Use list_cost_recommendations to see yours."
+    )
 
 
 def register_ops_tools(mcp: FastMCP) -> None:
@@ -591,3 +611,135 @@ def register_ops_tools(mcp: FastMCP) -> None:
             found = data.get("anomalies_detected") or data.get("anomaliesDetected") or []
         found = [a for a in found if isinstance(a, dict)][:20]
         return {"anomalies": found, "count": len(found)}
+
+    @mcp.tool(annotations=READ_ONLY, title="Get cost usage patterns")
+    @guarded
+    async def get_cost_usage_patterns(ctx: Context) -> Dict[str, Any]:
+        """Usage patterns the FinOps ML service found, which the cost recommendations are based on."""
+        data = await _recommendation_payload(get_api(ctx))
+        found: List[Any] = []
+        if isinstance(data, dict):
+            found = data.get("usage_patterns") or data.get("usagePatterns") or []
+        found = [p for p in found if isinstance(p, dict)][:20]
+        return {"patterns": found, "count": len(found)}
+
+    @mcp.tool(annotations=READ_ONLY, title="Get FinOps resource stats")
+    @guarded
+    async def get_finops_resource_stats(ctx: Context) -> Dict[str, Any]:
+        """Inventory totals across clouds: resource count and cost by provider, service and region."""
+        api = get_api(ctx)
+        stats = await api.finops_get("/resources/stats")
+        if not isinstance(stats, dict):
+            return {"message": "The FinOps service returned no resource statistics."}
+        out: Dict[str, Any] = {
+            "total_resources": stats.get("totalResources"), "total_cost": o.money(stats.get("totalCost")),
+            "by_provider": o.cap_map(stats.get("byProvider")),
+            "by_service": o.cap_map(stats.get("byService")),
+            "by_region": o.cap_map(stats.get("byRegion")),
+        }
+        try:
+            glob = await api.finops_get("/global/stats")
+        except NifeAPIError as exc:
+            if "rejected the access token" in str(exc):
+                raise
+            glob = None
+        if isinstance(glob, dict):
+            out["global"] = {
+                "total_cost": o.money(glob.get("totalCost")), "total_resources": glob.get("totalResources"),
+                "total_regions": glob.get("totalRegions"),
+                "top_services": (glob.get("topServices") or [])[:10],
+                "cost_by_provider": o.cap_map(glob.get("costByProvider")),
+            }
+        return out
+
+    @mcp.tool(annotations=READ_ONLY, title="Search FinOps resources")
+    @guarded
+    async def search_finops_resources(
+        ctx: Context,
+        provider: Annotated[Optional[str], Field(description="For example aws, azure, gcp or nife")] = None,
+        service: Annotated[Optional[str], Field(description="For example EC2, RDS or kubernetes")] = None,
+        region: Annotated[Optional[str], Field(description="Cloud region, for example us-east-1")] = None,
+        account: Annotated[Optional[str], Field(description="Cloud account name")] = None,
+        cluster_id: Annotated[Optional[str], Field(description="Nife cluster id")] = None,
+        namespace: Annotated[Optional[str], Field(description="Kubernetes namespace")] = None,
+        app_id: Annotated[Optional[str], Field(description="Nife app id")] = None,
+        tag_key: Annotated[Optional[str], Field(description="Tag name; needs tag_value")] = None,
+        tag_value: Annotated[Optional[str], Field(description="Tag value; needs tag_key")] = None,
+        query: Annotated[Optional[str], Field(description="Free-text search on name, id and tags")] = None,
+        limit: Limit = 25,
+        skip: Annotated[int, Field(description="Results to skip, for paging", ge=0, le=10000)] = 0,
+    ) -> Dict[str, Any]:
+        """Search the multi-cloud resource inventory with monthly cost per resource. All filters are
+        optional and combine with AND."""
+        filters = o.build_resource_filters(
+            provider=_opt(provider, "provider", 60), service=_opt(service, "service", 60),
+            region=_opt(region, "region", 60), account=_opt(account, "account", 120),
+            cluster_id=_opt(cluster_id, "cluster_id"), namespace=_opt(namespace, "namespace", 120),
+            app_id=_opt(app_id, "app_id"), tag_key=_opt(tag_key, "tag_key", 64),
+            tag_value=_opt(tag_value, "tag_value", 200),
+        )
+        params: Dict[str, Any] = {"limit": _cap(limit), "skip": int(skip)}
+        text = _opt(query, "query", 200)
+        if text:
+            params["query"] = text
+        data = await get_api(ctx).finops_post("/resources/search", filters, params=params)
+        items = [r for r in o.unwrap_list(data, "resources", "data") if isinstance(r, dict)]
+        rows = [o.resource_view(r) for r in items[:MAX_ITEMS]]
+        return {
+            "resources": rows, "count": len(rows),
+            "page_monthly_cost": round(sum(r["monthly_cost"] or 0 for r in rows), 2),
+            "has_more": len(items) >= _cap(limit),
+        }
+
+    @mcp.tool(annotations=READ_ONLY, title="Get cost breakdown")
+    @guarded
+    async def get_cost_breakdown(
+        ctx: Context,
+        start_date: Annotated[Optional[str], Field(description="Start date, for example 2026-10-01")] = None,
+        end_date: Annotated[Optional[str], Field(description="End date, for example 2026-10-31")] = None,
+        group_by: Annotated[Optional[List[str]], Field(description="Up to 3 fields, for example provider, service, region")] = None,
+    ) -> Dict[str, Any]:
+        """Cost explorer: total cost for a period, grouped by the fields given, with child rows."""
+        start, end = _date(start_date, "start_date"), _date(end_date, "end_date")
+        if start and end and start > end:
+            raise ValueError("start_date must not be after end_date.")
+        groups = o.check_group_by(group_by)
+        body: Dict[str, Any] = {}
+        if start:
+            body["startDate"] = start
+        if end:
+            body["endDate"] = end
+        if groups:
+            body["groupBy"] = groups
+        data = await get_api(ctx).finops_post("/costs/explorer", body)
+        if not isinstance(data, dict) or not data:
+            return {"message": "The FinOps service returned no cost data for this request."}
+        return o.breakdown_view(data)
+
+    @mcp.tool(annotations=DESTRUCTIVE, title="Apply cost recommendation")
+    @guarded
+    async def apply_cost_recommendation(
+        recommendation_id: Annotated[str, Field(description="Id from list_cost_recommendations")],
+        ctx: Context,
+        confirm: Annotated[bool, Field(description="Must be true to apply. Leave false to preview.")] = False,
+    ) -> Dict[str, Any]:
+        """Carry out one cost recommendation through the FinOps service. This can change real
+        infrastructure (right-sizing, schedules, storage tiers). Call without confirm first to show
+        the user what would happen, then again with confirm=true only after they agree."""
+        api = get_api(ctx)
+        wanted = _need(recommendation_id, "recommendation_id")
+        rec = await _own_recommendation(api, wanted)
+        if not confirm:
+            return {
+                "applied": False,
+                "message": "Preview only. Nothing was changed. Call again with confirm=true to apply.",
+                "recommendation": rec,
+            }
+        res = await api.finops_post(f"/recommendations/{quote(wanted, safe='')}/action", {"action": "apply"})
+        res = res if isinstance(res, dict) else {}
+        if res.get("success") is False:
+            raise NifeAPIError(o.clip(res.get("message"), 300) or "The FinOps service did not apply the recommendation.")
+        return {
+            "applied": True, "id": rec["id"], "title": rec["title"],
+            "monthly_savings": rec["monthly_savings"], "message": o.clip(res.get("message"), 300),
+        }

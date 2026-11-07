@@ -998,6 +998,22 @@ class NifeAPI:
         _check_status(resp)
         return _json(resp)
 
+    async def finops_post(
+        self, path: str, body: Any, params: Optional[Dict[str, Any]] = None
+    ) -> Any:
+        """POST on the FinOps service with the caller's token. Same 404 rule as finops_get."""
+        resp = await send(
+            "POST", f"{FINOPS_URL}{path}", params=params, json=body,
+            headers=self._headers, timeout=60.0,
+        )
+        if resp.status_code == 404:
+            raise NifeAPIError("The FinOps service has no data for this request (HTTP 404).")
+        _check_status(resp)
+        try:
+            return resp.json()
+        except ValueError:
+            return {}
+
     # ------------------------------------------------- container apps (GraphQL)
     # Operation names and fields mirror nife.io/api/apps.graphqls and deploy.graphqls.
     async def apps(

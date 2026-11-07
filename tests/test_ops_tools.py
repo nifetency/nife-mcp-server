@@ -171,7 +171,20 @@ class FakeAPI:
             raise NifeAPIError(self._finops_error)
         if path == "/ml/cost-forecast":
             return self._forecast
-        return {"recommendations": self._recs or [], "anomalies_detected": self._anomalies or []}
+        if path == "/resources/stats":
+            return {"totalResources": 3, "totalCost": 981.004, "byProvider": {"aws": 3}}
+        if path == "/global/stats":
+            return {"totalCost": 981, "totalResources": 3, "totalRegions": 2}
+        return {"recommendations": self._recs or [], "anomalies_detected": self._anomalies or [],
+                "usage_patterns": getattr(self, "patterns", [])}
+
+    async def finops_post(self, path, body, params=None):
+        self.calls.append(("finops_post", path, body, params))
+        if path == "/resources/search":
+            return getattr(self, "resources", [])
+        if path == "/costs/explorer":
+            return getattr(self, "explorer", {})
+        return getattr(self, "apply_result", {"success": True, "message": "done"})
 
 
 def _tool(name):
@@ -193,8 +206,9 @@ def test_all_ops_tools_register_with_distinct_names():
     mcp = FastMCP("test")
     ops_tools.register_ops_tools(mcp)
     names = [t.name for t in mcp._tool_manager.list_tools()]
-    assert len(names) == len(set(names)) == 21
-    assert {"get_health_insights", "acknowledge_alert", "list_cost_recommendations"} <= set(names)
+    assert len(names) == len(set(names)) == 26
+    assert {"get_health_insights", "acknowledge_alert", "list_cost_recommendations",
+            "apply_cost_recommendation", "search_finops_resources", "get_cost_breakdown"} <= set(names)
 
 
 def test_org_keyed_tools_reject_a_foreign_organization(monkeypatch):
@@ -301,3 +315,97 @@ def test_cost_forecast_shapes_and_missing_service(monkeypatch):
         _run(monkeypatch, FakeAPI(finops_error="The FinOps service has no data for this request (HTTP 404)."),
              "get_cost_forecast")
     assert "message" in _run(monkeypatch, FakeAPI(forecast=[]), "get_cost_forecast")
+
+
+# ------------------------------------------- inventory, cost explorer, apply recommendation
+def test_resource_filter_builder_limits_fields_and_checks_tags():
+    f = o.build_resource_filters(provider="aws", cluster_id="c1", tag_key="team", tag_value="platform")
+    assert f == [
+        {"field": "provider", "operator": "=", "value": "aws"},
+        {"field": "metadata.clusterId", "operator": "=", "value": "c1"},
+        {"field": "tags.team", "operator": "=", "value": "platform"},
+    ]
+    assert o.build_resource_filters() == []
+    with pytest.raises(ValueError, match="given together"):
+        o.build_resource_filters(tag_key="team")
+    with pytest.raises(ValueError, match="tag_key may only"):
+        o.build_resource_filters(tag_key="a.b", tag_value="x")
+
+
+def test_check_group_by_and_views():
+    assert o.check_group_by(None) is None and o.check_group_by([]) is None
+    assert o.check_group_by([" provider ", "service"]) == ["provider", "service"]
+    with pytest.raises(ValueError, match="at most"):
+        o.check_group_by(["a", "b", "c", "d"])
+    with pytest.raises(ValueError, match="short names"):
+        o.check_group_by(["provider; drop"])
+    view = o.breakdown_view({"total": 10.004, "breakdown": [
+        {"key": "compute", "value": 10, "children": [{"key": "EC2", "value": 10}, "junk"]}, "junk"]})
+    assert view == {"total": 10.0, "breakdown": [
+        {"key": "compute", "value": 10.0, "children": [{"key": "EC2", "value": 10.0}]}]}
+    r = o.resource_view({"id": "r1", "resourceId": "i-1", "cost": 5, "tags": {"a": "b"},
+                         "metadata": {"vcpu": 2, "secret": "x"}})
+    assert r["monthly_cost"] == 5.0 and r["metadata"] == {"vcpu": 2}
+
+
+def test_resource_stats_tolerates_a_missing_global_endpoint(monkeypatch):
+    out = _run(monkeypatch, FakeAPI(), "get_finops_resource_stats")
+    assert out["total_cost"] == 981.0 and out["global"]["total_regions"] == 2
+
+
+def test_search_resources_builds_filters_and_clamps_paging(monkeypatch):
+    api = FakeAPI()
+    api.resources = [{"id": "r1", "cost": 10}, {"id": "r2", "cost": 5.5}, "junk"]
+    out = _run(monkeypatch, api, "search_finops_resources", provider="aws", query=" web ", limit=500)
+    assert out["count"] == 2 and out["page_monthly_cost"] == 15.5
+    _, path, body, params = api.calls[-1]
+    assert path == "/resources/search"
+    assert body == [{"field": "provider", "operator": "=", "value": "aws"}]
+    assert params == {"limit": 50, "skip": 0, "query": "web"}
+    before = len(api.calls)
+    with pytest.raises(ToolError, match="given together"):
+        _run(monkeypatch, api, "search_finops_resources", tag_key="team")
+    assert len(api.calls) == before
+
+
+def test_cost_breakdown_validates_input_and_shapes_the_body(monkeypatch):
+    api = FakeAPI()
+    with pytest.raises(ToolError, match="must look like"):
+        _run(monkeypatch, api, "get_cost_breakdown", start_date="October")
+    with pytest.raises(ToolError, match="not be after"):
+        _run(monkeypatch, api, "get_cost_breakdown", start_date="2026-10-31", end_date="2026-10-01")
+    assert api.calls == []
+    assert "message" in _run(monkeypatch, api, "get_cost_breakdown")
+    api.explorer = {"total": 7, "breakdown": [{"key": "aws", "value": 7}]}
+    out = _run(monkeypatch, api, "get_cost_breakdown", start_date="2026-10-01", group_by=["provider"])
+    assert out["total"] == 7.0
+    assert api.calls[-1][2] == {"startDate": "2026-10-01", "groupBy": ["provider"]}
+
+
+def test_usage_patterns_ignore_junk(monkeypatch):
+    api = FakeAPI()
+    api.patterns = [{"name": "idle nights"}, "junk"]
+    assert _run(monkeypatch, api, "get_cost_usage_patterns") == {"patterns": [{"name": "idle nights"}], "count": 1}
+
+
+def test_apply_recommendation_checks_ownership_and_needs_confirmation(monkeypatch):
+    recs = [{"id": "rec-1", "title": "Rightsize", "priority": "high", "savings": 40}]
+    api = FakeAPI(recs=recs)
+    with pytest.raises(ToolError, match="No cost recommendation"):
+        _run(monkeypatch, api, "apply_cost_recommendation", recommendation_id="rec-foreign", confirm=True)
+    assert "finops_post" not in _names(api)
+
+    preview = _run(monkeypatch, api, "apply_cost_recommendation", recommendation_id="rec-1")
+    assert preview["applied"] is False and preview["recommendation"]["title"] == "Rightsize"
+    assert "finops_post" not in _names(api)
+
+    done = _run(monkeypatch, api, "apply_cost_recommendation", recommendation_id="rec-1", confirm=True)
+    assert done["applied"] is True and done["monthly_savings"] == 40.0
+    assert api.calls[-1] == ("finops_post", "/recommendations/rec-1/action", {"action": "apply"}, None)
+
+
+def test_apply_recommendation_reports_a_refusal_from_the_service(monkeypatch):
+    api = FakeAPI(recs=[{"id": "rec-1", "title": "Rightsize"}])
+    api.apply_result = {"success": False, "message": "Resource is in use"}
+    with pytest.raises(ToolError, match="Resource is in use"):
+        _run(monkeypatch, api, "apply_cost_recommendation", recommendation_id="rec-1", confirm=True)

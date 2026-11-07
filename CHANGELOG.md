@@ -10,6 +10,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - NERO (AI SRE) tools: health insights, incidents and post-mortems, root cause analysis, alerts (acknowledge and resolve), anomalies, failure predictions, SLO status, health report, knowledge base search
 - FinOps tools: spending overview, usage stats, billing cycles and items, invoices, cloud billing summary, ranked cost recommendations, cost forecast, cost anomalies
+- FinOps inventory and cost explorer tools: `search_finops_resources`, `get_finops_resource_stats`, `get_cost_breakdown`, `get_cost_usage_patterns`
+- `apply_cost_recommendation`: carries out one cost recommendation. Previews unless `confirm=true`, and only accepts ids from the caller's own recommendation list
+- `finops_post` client helper for the FinOps service
 - Ownership checks: org-keyed queries verify organization membership; alert and billing cycle ids are checked against the caller's own lists before any change or lookup
 
 ### Fixed
