@@ -38,6 +38,18 @@ def fail(exc: Exception) -> ToolError:
     return ToolError(str(exc))
 
 
+async def require_org(api: NifeAPI, organization_id: str) -> Dict[str, Any]:
+    """Prove the caller belongs to the organization before an org-keyed query is made.
+
+    Several SRE queries take a bare orgId, so the id is checked against the caller's own
+    organization list (a GraphQL call made with the caller's token) first.
+    """
+    for org in await api.organizations():
+        if org.get("id") == organization_id:
+            return org
+    raise NifeAPIError("Unknown organization_id. Use list_organizations to see your organizations.")
+
+
 async def site_or_none(api: NifeAPI, name: str) -> Optional[Dict[str, Any]]:
     """Look a site up by name. A 'not found' style backend error means None, but an
     authentication failure is never swallowed."""

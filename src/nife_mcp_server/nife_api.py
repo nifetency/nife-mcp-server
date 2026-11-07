@@ -31,6 +31,10 @@ EXPRESS_URL = os.environ.get(
 UPTIME_KUMA_URL = os.environ.get(
     "NIFE_UPTIME_KUMA_URL", "https://testuptimekuma.nifetency.com"
 ).rstrip("/")
+# FinOps ML service (cost recommendations, forecast): the dashboard's costOptimization.service.ts
+FINOPS_URL = os.environ.get(
+    "NIFE_FINOPS_URL", "https://platus.clb2.nifetency.com"
+).rstrip("/")
 
 
 class NifeAPIError(Exception):
@@ -689,6 +693,310 @@ class NifeAPI:
             timeout=120.0,
         )
         return data.get("addIngressRule") or {}
+
+    # ------------------------------------------------ NERO / SRE AI (GraphQL)
+    # Operations and fields mirror nife.io/api/sre_ai.graphqls and sre_workflow.graphqls.
+    # Variable types must match the schema exactly (orgId is ID in most, String in the report).
+
+    async def sre_incidents(
+        self, org_id: str, status: Optional[str], severity: Optional[str], limit: int,
+        detail: bool = False,
+    ) -> List[Dict[str, Any]]:
+        extra = (
+            """indicators { name value expected detail source severity }
+               postmortem { durationMinutes outcome rootCause actionsTaken timeline
+                            lessonsLearned prevention healthBefore healthAfter generatedAt generatedBy }"""
+            if detail else ""
+        )
+        data = await self.graphql(
+            """query GetIncidents($orgId: ID!, $status: String, $severity: String, $limit: Int) {
+                 getIncidents(orgId: $orgId, status: $status, severity: $severity, limit: $limit) {
+                   id appName serviceName incidentType severity title description detectedAt
+                   resolvedAt status rootCause resolution autoResolved rootCauseConfidence
+                   rootCauseSource """ + extra + """
+                 }
+               }""",
+            {"orgId": org_id, "status": status, "severity": severity, "limit": limit},
+        )
+        return data.get("getIncidents") or []
+
+    async def sre_root_cause(
+        self, *, incident_id: Optional[str], app_name: str, service_name: str,
+        error_type: str, org_id: Optional[str], refresh: bool,
+    ) -> Optional[Dict[str, Any]]:
+        data = await self.graphql(
+            """query GetRootCauseAnalysis(
+                 $incidentId: ID, $appName: String!, $serviceName: String!, $errorType: String!,
+                 $orgId: ID, $refresh: Boolean
+               ) {
+                 getRootCauseAnalysis(
+                   incidentId: $incidentId, appName: $appName, serviceName: $serviceName,
+                   errorType: $errorType, orgId: $orgId, refresh: $refresh
+                 ) {
+                   incidentId appName serviceName errorType primaryRootCause contributingFactors
+                   causalChain { order event evidence timeDeltaSec }
+                   timeline { timestamp eventType description severity source }
+                   impactedServices aiAnalysis confidence analyzedAt
+                   recommendedFixes { id action description priority automated riskLevel confidence }
+                 }
+               }""",
+            {
+                "incidentId": incident_id, "appName": app_name, "serviceName": service_name,
+                "errorType": error_type, "orgId": org_id, "refresh": refresh,
+            },
+            timeout=120.0,
+        )
+        return data.get("getRootCauseAnalysis")
+
+    async def sre_alerts(
+        self, org_id: Optional[str], status: Optional[str], severity: Optional[str], limit: int
+    ) -> List[Dict[str, Any]]:
+        data = await self.graphql(
+            """query GetAlerts($orgId: ID, $status: String, $severity: String, $limit: Int) {
+                 getAlerts(orgId: $orgId, status: $status, severity: $severity, limit: $limit) {
+                   id title description severity status resource kind timestamp
+                   acknowledgedBy acknowledgedAt resolvedBy resolvedAt
+                 }
+               }""",
+            {"orgId": org_id, "status": status, "severity": severity, "limit": limit},
+        )
+        return data.get("getAlerts") or []
+
+    async def sre_acknowledge_alert(self, alert_id: str) -> Optional[Dict[str, Any]]:
+        data = await self.graphql(
+            """mutation AcknowledgeAlert($alertId: String!) {
+                 acknowledgeAlert(alertId: $alertId) { id title status acknowledgedBy acknowledgedAt }
+               }""",
+            {"alertId": alert_id},
+        )
+        return data.get("acknowledgeAlert")
+
+    async def sre_resolve_alert(self, alert_id: str) -> Optional[Dict[str, Any]]:
+        data = await self.graphql(
+            """mutation ResolveAlert($alertId: String!) {
+                 resolveAlert(alertId: $alertId) { id title status resolvedBy resolvedAt }
+               }""",
+            {"alertId": alert_id},
+        )
+        return data.get("resolveAlert")
+
+    async def sre_anomalies(
+        self, org_id: str, app_name: Optional[str], service_name: Optional[str],
+        severity: Optional[str], time_range: Optional[str], limit: int,
+    ) -> List[Dict[str, Any]]:
+        data = await self.graphql(
+            """query GetAnomalies(
+                 $orgId: ID!, $appName: String, $serviceName: String, $severity: String,
+                 $timeRange: String, $limit: Int
+               ) {
+                 getAnomalies(
+                   orgId: $orgId, appName: $appName, serviceName: $serviceName,
+                   severity: $severity, timeRange: $timeRange, limit: $limit
+                 ) {
+                   id appName serviceName metricType type severity description anomalyScore
+                   expectedValue actualValue deviation detectionMethod confidence detectedAt
+                   acknowledged incidentId clusterRegion
+                 }
+               }""",
+            {
+                "orgId": org_id, "appName": app_name, "serviceName": service_name,
+                "severity": severity, "timeRange": time_range, "limit": limit,
+            },
+        )
+        return data.get("getAnomalies") or []
+
+    async def sre_predictions(
+        self, org_id: str, app_name: str, service_name: Optional[str], time_horizon: Optional[str]
+    ) -> List[Dict[str, Any]]:
+        data = await self.graphql(
+            """query GetFailurePredictions(
+                 $orgId: ID!, $appName: String!, $serviceName: String, $timeHorizon: String
+               ) {
+                 getFailurePredictions(
+                   orgId: $orgId, appName: $appName, serviceName: $serviceName, timeHorizon: $timeHorizon
+                 ) {
+                   id appName serviceName predictionType predictedIssue probability
+                   timeToOccurrenceMinutes severity rootCause confidence predictedAt clusterRegion
+                   recommendedActions { id action description priority automated riskLevel confidence }
+                 }
+               }""",
+            {"orgId": org_id, "appName": app_name, "serviceName": service_name, "timeHorizon": time_horizon},
+            timeout=90.0,
+        )
+        return data.get("getFailurePredictions") or []
+
+    async def sre_slo(
+        self, org_id: str, app_name: Optional[str], service_name: Optional[str], window: Optional[str]
+    ) -> Optional[Dict[str, Any]]:
+        data = await self.graphql(
+            """query GetSLOStatus($orgId: ID!, $appName: String, $serviceName: String, $window: String) {
+                 getSLOStatus(orgId: $orgId, appName: $appName, serviceName: $serviceName, window: $window) {
+                   appName serviceName window availability errorBudgetTotal errorBudgetUsed
+                   errorBudgetRemaining errorBudgetPct burnRate burnRate1h burnRate6h sloTarget
+                   targetIsDefault source breaching daysRemaining generatedAt
+                 }
+               }""",
+            {"orgId": org_id, "appName": app_name, "serviceName": service_name, "window": window},
+        )
+        return data.get("getSLOStatus")
+
+    async def sre_health_insights(
+        self, org_id: str, app_name: Optional[str], cluster_id: Optional[str]
+    ) -> Optional[Dict[str, Any]]:
+        data = await self.graphql(
+            """query GetAIHealthInsights($orgId: ID!, $appName: String, $clusterID: String) {
+                 getAIHealthInsights(orgId: $orgId, appName: $appName, clusterID: $clusterID) {
+                   overallHealth healthScore criticalIssues warnings openIncidents insights
+                   trendAnalysis generatedAt
+                   activeAnomalies { id appName serviceName metricType severity description detectedAt }
+                   criticalPredictions {
+                     id appName serviceName predictedIssue probability timeToOccurrenceMinutes severity
+                   }
+                   recommendations { id action description priority automated riskLevel confidence }
+                 }
+               }""",
+            {"orgId": org_id, "appName": app_name, "clusterID": cluster_id},
+            timeout=90.0,
+        )
+        return data.get("getAIHealthInsights")
+
+    async def sre_health_report(
+        self, app_name: str, service_name: str, org_id: str
+    ) -> Optional[Dict[str, Any]]:
+        data = await self.graphql(
+            """query GetComprehensiveHealthReport($appName: String!, $serviceName: String!, $orgId: String!) {
+                 getComprehensiveHealthReport(appName: $appName, serviceName: $serviceName, orgId: $orgId) {
+                   appName serviceName timestamp overallHealthScore healthStatus errors
+                   monitoringData { status uptime }
+                   clusterHealth {
+                     totalNodes healthyNodes unhealthyNodes
+                     resourcePressure { cpu memory storage }
+                     podHealth { totalPods runningPods pendingPods failedPods unhealthyPods restartedPods }
+                   }
+                   logAnalysis {
+                     totalErrors totalWarnings
+                     topErrors { pattern count severity firstSeen lastSeen }
+                   }
+                   recommendations { id action description priority automated riskLevel confidence }
+                 }
+               }""",
+            {"appName": app_name, "serviceName": service_name, "orgId": org_id},
+            timeout=120.0,
+        )
+        return data.get("getComprehensiveHealthReport")
+
+    async def sre_knowledge(self, query: str, limit: int) -> List[Dict[str, Any]]:
+        data = await self.graphql(
+            """query SearchKnowledgeBase($query: String!, $limit: Int) {
+                 searchKnowledgeBase(query: $query, limit: $limit) {
+                   id incidentType errorPattern rootCause solution resolution effectiveness
+                   timesOccurred lastOccurred tags
+                 }
+               }""",
+            {"query": query, "limit": limit},
+        )
+        return data.get("searchKnowledgeBase") or []
+
+    # ------------------------------------------------------ FinOps (billing + ML)
+    # Billing mirrors nife.io/api/billing.graphqls. The ML cost endpoints are the FinOps REST
+    # service the dashboard calls (costOptimization.service.ts); they take the same bearer token.
+    async def billing_current_usage(self) -> Optional[Dict[str, Any]]:
+        data = await self.graphql(
+            """query GetCurrentUsage {
+                 getCurrentUsage {
+                   monthlySpending dailySpending monthlySpendingLimit dailySpendingLimit
+                   utilizationPercentage
+                 }
+               }"""
+        )
+        return data.get("getCurrentUsage")
+
+    async def billing_spending_stats(self) -> Optional[Dict[str, Any]]:
+        data = await self.graphql(
+            "query GetSpendingStats { getSpendingStats { thisMonth lastMonth thisYear averageMonthly } }"
+        )
+        return data.get("getSpendingStats")
+
+    async def billing_user_limits(self) -> Optional[Dict[str, Any]]:
+        data = await self.graphql(
+            """query GetUserLimits {
+                 getUserLimits { monthlySpendingLimit dailySpendingLimit maxReplicas maxMemoryGb maxCpuCores }
+               }"""
+        )
+        return data.get("getUserLimits")
+
+    async def billing_usage_stats(self, app_id: Optional[str], period: str) -> Optional[Dict[str, Any]]:
+        data = await self.graphql(
+            """query GetUsageStats($appId: String, $period: String) {
+                 getUsageStats(appId: $appId, period: $period) {
+                   cpuHours memoryGbHours networkGb storageGbDays totalCost
+                 }
+               }""",
+            {"appId": app_id, "period": period},
+        )
+        return data.get("getUsageStats")
+
+    async def billing_cycles(self, limit: int) -> List[Dict[str, Any]]:
+        data = await self.graphql(
+            """query GetBillingHistoryCycle($limit: Int) {
+                 getBillingHistoryCycle(limit: $limit) {
+                   id startDate endDate totalAmount status currency paidAt createdAt
+                 }
+               }""",
+            {"limit": limit},
+        )
+        return [c for c in data.get("getBillingHistoryCycle") or [] if c]
+
+    async def billing_items(self, cycle_id: str) -> List[Dict[str, Any]]:
+        data = await self.graphql(
+            """query GetBillingItems($cycleId: String!) {
+                 getBillingItems(cycleId: $cycleId) {
+                   id appId appName resourceType quantity unitPrice totalPrice
+                   usagePeriodStart usagePeriodEnd
+                 }
+               }""",
+            {"cycleId": cycle_id},
+        )
+        return [i for i in data.get("getBillingItems") or [] if i]
+
+    async def billing_invoices(self, limit: int) -> List[Dict[str, Any]]:
+        data = await self.graphql(
+            """query GetInvoices($limit: Int) {
+                 getInvoices(limit: $limit) {
+                   id invoiceNumber subTotal taxAmount totalAmount currency status dueDate paidAt createdAt
+                 }
+               }""",
+            {"limit": limit},
+        )
+        return [i for i in data.get("getInvoices") or [] if i]
+
+    async def billing_cloud_summary(
+        self, period_start: Optional[str], period_end: Optional[str]
+    ) -> Optional[Dict[str, Any]]:
+        data = await self.graphql(
+            """query GetCloudBillingSummary($periodStart: String, $periodEnd: String) {
+                 getCloudBillingSummary(periodStart: $periodStart, periodEnd: $periodEnd) {
+                   periodStart periodEnd totalCloudCost markupPercent totalMarkup totalAmount currency
+                   lines {
+                     resourceType appId appName cloudCost markupPercent markupAmount totalAmount currency
+                   }
+                 }
+               }""",
+            {"periodStart": period_start, "periodEnd": period_end},
+            timeout=90.0,
+        )
+        return data.get("getCloudBillingSummary")
+
+    async def finops_get(self, path: str, params: Optional[Dict[str, Any]] = None) -> Any:
+        """GET on the FinOps ML service with the caller's token. A 404 means that capability
+        is not deployed for this account, which is reported, not treated as an empty result."""
+        resp = await send(
+            "GET", f"{FINOPS_URL}{path}", params=params, headers=self._headers, timeout=45.0
+        )
+        if resp.status_code == 404:
+            raise NifeAPIError("The FinOps service has no data for this request (HTTP 404).")
+        _check_status(resp)
+        return _json(resp)
 
     # ------------------------------------------------- container apps (GraphQL)
     # Operation names and fields mirror nife.io/api/apps.graphqls and deploy.graphqls.
