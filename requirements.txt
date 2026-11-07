@@ -1,6 +1,6 @@
 # Core MCP server dependencies
 requests==2.32.4
-certifi==2025.7.14
+certifi==2026.10.19
 charset-normalizer==3.4.2
 idna==3.10
 urllib3>=2.6.3
