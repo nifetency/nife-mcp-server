@@ -5,13 +5,13 @@ with open("README.md", "r", encoding="utf-8") as fh:
 
 setup(
     name="nife-mcp-server",
-    version="1.0.0",
+    version="1.0.4",
     author="Nife Team",
     author_email="support@nife.io",
     description="Model Context Protocol server for Nife.io GraphQL API - Intelligent schema-driven implementation",
     long_description=long_description,
     long_description_content_type="text/markdown",
-    url="https://github.com/nife-io/nife-mcp-server",
+    url="https://github.com/nifetency/nife-mcp-server",
     packages=find_packages(where="src"),
     package_dir={"": "src"},
     classifiers=[
@@ -20,8 +20,6 @@ setup(
         "Topic :: Software Development :: Libraries :: Python Modules",
         "License :: OSI Approved :: MIT License",
         "Programming Language :: Python :: 3",
-        "Programming Language :: Python :: 3.8",
-        "Programming Language :: Python :: 3.9",
         "Programming Language :: Python :: 3.10",
         "Programming Language :: Python :: 3.11",
         "Programming Language :: Python :: 3.12",
@@ -29,20 +27,29 @@ setup(
         "Framework :: Flask",
         "Topic :: Internet :: WWW/HTTP :: Dynamic Content",
     ],
-    python_requires=">=3.8",
+    python_requires=">=3.10",
     install_requires=[
         "flask>=2.0.0",
         "flask-cors>=3.0.0",
         "requests>=2.25.0",
     ],
+    extras_require={
+        "http": [
+            "mcp>=1.10,<2",
+            "httpx>=0.27",
+            "uvicorn>=0.30",
+            "cryptography>=42",
+        ],
+    },
     entry_points={
         "console_scripts": [
-            "nife-mcp-server=nife_mcp_server.intelligent_main:main",
+            "nife-mcp-server=nife_mcp_server.intelligent_main:run",
+            "nife-mcp-http=nife_mcp_server.http_app:main",
         ],
     },
     project_urls={
-        "Bug Reports": "https://github.com/nife-io/nife-mcp-server/issues",
-        "Documentation": "https://github.com/nife-io/nife-mcp-server#readme",
-        "Source": "https://github.com/nife-io/nife-mcp-server",
+        "Bug Reports": "https://github.com/nifetency/nife-mcp-server/issues",
+        "Documentation": "https://github.com/nifetency/nife-mcp-server#readme",
+        "Source": "https://github.com/nifetency/nife-mcp-server",
     },
 )

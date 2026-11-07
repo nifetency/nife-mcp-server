@@ -7,7 +7,7 @@ Use this checklist before releasing your Nife MCP Server.
 ## 🔍 Pre-Release Verification
 
 ### Environment Setup
-- [ ] Python 3.8+ installed and working
+- [ ] Python 3.10+ installed and working
 - [ ] Node.js 16+ installed (for NPM release)
 - [ ] Git installed and configured
 - [ ] PyPI account created (https://pypi.org/account/register/)
@@ -18,7 +18,7 @@ Use this checklist before releasing your Nife MCP Server.
 - [ ] Run `./RELEASE_SUMMARY.sh` to verify package status
 - [ ] Test Python package locally:
   ```bash
-  pip install dist/nife_mcp_server-1.0.0-py3-none-any.whl
+  pip install dist/nife_mcp_server-1.0.4-py3-none-any.whl
   nife-mcp-server
   pip uninstall nife-mcp-server
   ```
@@ -26,7 +26,7 @@ Use this checklist before releasing your Nife MCP Server.
   ```bash
   npm install -g .
   nife-mcp-server
-  npm uninstall -g @nife/mcp-server
+  npm uninstall -g @nifelabs/mcp-server
   ```
 - [ ] Test with Claude Desktop (update config, restart Claude)
 - [ ] Verify all GraphQL queries work
@@ -34,7 +34,7 @@ Use this checklist before releasing your Nife MCP Server.
 - [ ] Verify authentication works
 
 ### Files Verification
-- [ ] All version numbers updated to 1.0.0
+- [ ] All version numbers updated to 1.0.4 (setup.py, pyproject.toml, package.json, src/nife_mcp_server/__init__.py)
 - [ ] README.md is accurate and complete
 - [ ] CHANGELOG.md has release notes
 - [ ] LICENSE file is present
@@ -83,9 +83,9 @@ npm publish --access public
 
 **GitHub:**
 ```bash
-git tag -a v1.0.0 -m "Release v1.0.0"
-git push origin v1.0.0
-gh release create v1.0.0 --notes-file CHANGELOG.md dist/*
+git tag -a v1.0.4 -m "Release v1.0.4"
+git push origin v1.0.4
+gh release create v1.0.4 --notes-file CHANGELOG.md dist/*
 ```
 
 ---
@@ -95,7 +95,7 @@ gh release create v1.0.0 --notes-file CHANGELOG.md dist/*
 ### Verify PyPI Release
 - [ ] Visit https://pypi.org/project/nife-mcp-server/
 - [ ] Package appears in search
-- [ ] Version 1.0.0 is listed
+- [ ] Version 1.0.4 is listed
 - [ ] README renders correctly
 - [ ] Test installation:
   ```bash
@@ -104,23 +104,23 @@ gh release create v1.0.0 --notes-file CHANGELOG.md dist/*
   ```
 
 ### Verify NPM Release
-- [ ] Visit https://www.npmjs.com/package/@nife/mcp-server
+- [ ] Visit https://www.npmjs.com/package/@nifelabs/mcp-server
 - [ ] Package appears in search
-- [ ] Version 1.0.0 is listed
+- [ ] Version 1.0.4 is listed
 - [ ] README displays correctly
 - [ ] Test installation:
   ```bash
-  npx @nife/mcp-server
+  npx @nifelabs/mcp-server
   ```
 
 ### Verify GitHub Release
-- [ ] Visit https://github.com/nife-io/nife-mcp-server/releases
-- [ ] Release v1.0.0 is visible
+- [ ] Visit https://github.com/nifetency/nife-mcp-server/releases
+- [ ] Release v1.0.4 is visible
 - [ ] CHANGELOG.md is in release notes
 - [ ] Distribution files are attached
 - [ ] Test cloning and installation:
   ```bash
-  git clone https://github.com/nife-io/nife-mcp-server.git
+  git clone https://github.com/nifetency/nife-mcp-server.git
   cd nife-mcp-server
   pip install -r requirements.txt
   python -m nife_mcp_server.intelligent_main
@@ -156,7 +156,7 @@ gh release create v1.0.0 --notes-file CHANGELOG.md dist/*
 
 ### Twitter/X
 ```
-🚀 Excited to announce Nife MCP Server v1.0.0!
+🚀 Excited to announce Nife MCP Server v1.0.4!
 
 A Model Context Protocol server for @nife_io's GraphQL API.
 
@@ -173,7 +173,7 @@ Install: pip install nife-mcp-server
 
 ### Dev.to Article Structure
 ```markdown
-# Introducing Nife MCP Server v1.0.0
+# Introducing Nife MCP Server v1.0.4
 
 [Introduction about MCP and Nife.io]
 
@@ -197,7 +197,7 @@ Install: pip install nife-mcp-server
 
 ### Reddit r/claudeAI
 ```
-[Project] Nife MCP Server v1.0.0 - GraphQL API Integration
+[Project] Nife MCP Server v1.0.4 - GraphQL API Integration
 
 I've released an MCP server that connects Claude to the Nife.io GraphQL API 
 with intelligent schema discovery and dynamic tool generation.
@@ -211,7 +211,7 @@ Features:
 Installation:
 pip install nife-mcp-server
 
-GitHub: https://github.com/nife-io/nife-mcp-server
+GitHub: https://github.com/nifetency/nife-mcp-server
 PyPI: https://pypi.org/project/nife-mcp-server/
 
 Would love feedback from the community!
@@ -222,10 +222,10 @@ Would love feedback from the community!
 ## 🐛 Issue Management
 
 ### Setup Issue Templates
-Create `.github/ISSUE_TEMPLATE/` with:
-- [ ] bug_report.md
-- [ ] feature_request.md
-- [ ] question.md
+Issue templates live in `.github/ISSUE_TEMPLATE/`:
+- [x] bug_report.yml
+- [x] feature_request.yml
+- [x] question.yml
 
 ### Monitor Issues
 - [ ] Check GitHub issues daily (first week)
@@ -297,21 +297,21 @@ If something goes wrong:
 ### PyPI
 ```bash
 # Cannot delete from PyPI, but can yank version
-pip install twine
-python -m twine yank nife-mcp-server 1.0.0
+# twine has no yank command: yank the release from the project's
+# "Manage" page on pypi.org (release 1.0.4 -> Options -> Yank)
 ```
 
 ### NPM
 ```bash
 # Unpublish within 72 hours
-npm unpublish @nife/mcp-server@1.0.0
+npm unpublish @nifelabs/mcp-server@1.0.4
 ```
 
 ### GitHub
 ```bash
 # Delete release
-gh release delete v1.0.0
-git push origin :refs/tags/v1.0.0
+gh release delete v1.0.4
+git push origin :refs/tags/v1.0.4
 ```
 
 ---

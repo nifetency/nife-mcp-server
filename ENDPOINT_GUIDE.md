@@ -5,7 +5,7 @@
 Run this command to test the endpoint:
 
 ```bash
-cd /Users/rentsher/nife-mcp-server
+cd nife-mcp-server
 python test_endpoint.py
 ```
 
@@ -77,7 +77,7 @@ export NIFE_ACCESS_TOKEN=$(nifectl auth token)
 ### Step 2: Run the Test Script
 
 ```bash
-cd /Users/rentsher/nife-mcp-server
+cd nife-mcp-server
 python test_endpoint.py
 ```
 
@@ -85,33 +85,32 @@ This will test multiple possible endpoints and tell you which one works.
 
 ### Step 3: Update the Endpoint (if needed)
 
-If the working endpoint is different, update these files:
+If the working endpoint is different:
 
-**File 1:** `src/nife_mcp_server/schema_manager.py` (line 18)
-```python
-def __init__(self, api_url: str = "CORRECT_ENDPOINT_HERE", access_token: Optional[str] = None):
-```
+The endpoint is hard-coded; there is no environment-variable override. Update it in:
 
-**File 2:** `src/nife_mcp_server/routes/mcp.py` (line 16)
+**File 1:** `src/nife_mcp_server/client.py`
 ```python
 NIFE_GRAPHQL_ENDPOINT = "CORRECT_ENDPOINT_HERE"
 ```
+
+**File 2:** `src/nife_mcp_server/schema_manager.py`, only if it defines its own `api_url` default (as `SchemaManager.__init__`) that differs from the endpoint above.
 
 ### Step 4: Run the MCP Server
 
 **Option A: Run the intelligent server (recommended)**
 ```bash
-cd /Users/rentsher/nife-mcp-server
+cd nife-mcp-server
 export NIFE_ACCESS_TOKEN="your_token"
 python -m nife_mcp_server.intelligent_main
 ```
 
-**Option B: Run the Flask server**
+**Option B: Run the hosted HTTP connector**
 ```bash
-cd /Users/rentsher/nife-mcp-server/src
-export NIFE_ACCESS_TOKEN="your_token"
-python main.py
+pip install "nife-mcp-server[http]"
+nife-mcp-http
 ```
+See [HOSTED.md](HOSTED.md) for configuration.
 
 ### Step 5: Test the Server
 

@@ -92,4 +92,4 @@ For installation and usage instructions, see the README.md file.
 
 ---
 
-[1.0.0]: https://github.com/nife-io/nife-mcp-server/releases/tag/v1.0.0
+[1.0.0]: https://github.com/nifetency/nife-mcp-server/releases/tag/v1.0.0

@@ -146,13 +146,13 @@ gh release create v1.0.4 \
   dist/*
 
 # Or create manually at:
-# https://github.com/nife-io/nife-mcp-server/releases/new
+# https://github.com/nifetency/nife-mcp-server/releases/new
 ```
 
 **After release:**
 ```bash
 # Users install with:
-git clone https://github.com/nife-io/nife-mcp-server.git
+git clone https://github.com/nifetency/nife-mcp-server.git
 cd nife-mcp-server
 pip install -r requirements.txt
 ```
@@ -250,12 +250,12 @@ npm uninstall -g @nifelabs/mcp-server
 ### Package Names
 - **PyPI**: `nife-mcp-server`
 - **NPM**: `@nifelabs/mcp-server`
-- **GitHub**: `nife-io/nife-mcp-server`
+- **GitHub**: `nifetency/nife-mcp-server`
 
 ### Package URLs (After Publishing)
 - **PyPI**: https://pypi.org/project/nife-mcp-server/
 - **NPM**: https://www.npmjs.com/package/@nifelabs/mcp-server
-- **GitHub**: https://github.com/nife-io/nife-mcp-server
+- **GitHub**: https://github.com/nifetency/nife-mcp-server
 
 ### Installation Commands
 ```bash
@@ -268,7 +268,7 @@ npm install -g @nifelabs/mcp-server
 npx @nifelabs/mcp-server
 
 # GitHub
-git clone https://github.com/nife-io/nife-mcp-server.git
+git clone https://github.com/nifetency/nife-mcp-server.git
 ```
 
 ---

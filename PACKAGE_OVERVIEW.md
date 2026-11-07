@@ -3,7 +3,7 @@
 ## 🎯 Current Status: READY FOR RELEASE ✅
 
 ```
-Version: 1.0.0
+Version: 1.0.4
 Status: Production Ready
 Built: Yes
 Tested: Pending
@@ -19,8 +19,8 @@ nife-mcp-server/
 │
 ├── 📦 DISTRIBUTION FILES
 │   ├── dist/
-│   │   ├── nife_mcp_server-1.0.0-py3-none-any.whl  ✅ Built
-│   │   └── nife_mcp_server-1.0.0.tar.gz            ✅ Built
+│   │   ├── nife_mcp_server-1.0.4-py3-none-any.whl  ✅ Built
+│   │   └── nife_mcp_server-1.0.4.tar.gz            ✅ Built
 │   │
 │   ├── bin/
 │   │   ├── nife-mcp-server                         ✅ Python entry
@@ -48,7 +48,7 @@ nife-mcp-server/
 │   ├── RELEASE_CHECKLIST.md        ✅ Pre-release checks
 │   ├── RELEASE_STATUS.md           ✅ Current status
 │   ├── QUICK_RELEASE.md            ✅ TL;DR guide
-│   ├── QUICKSTART.md               ✅ User quickstart
+│   ├── HOSTED.md                   ✅ Hosted connector guide
 │   └── ENDPOINT_GUIDE.md           ✅ API reference
 │
 ├── 🔧 AUTOMATION SCRIPTS
@@ -109,14 +109,14 @@ Usage: nife-mcp-server
 ```
 Status: Ready
 Command: npm publish --access public
-Install: npx @nife/mcp-server
+Install: npx @nifelabs/mcp-server
 Usage: Via Claude Desktop config
 ```
 
 ### 3️⃣ GitHub Releases
 ```
 Status: Ready
-Command: gh release create v1.0.0
+Command: gh release create v1.0.4
 Install: git clone + pip install
 Usage: python -m nife_mcp_server.intelligent_main
 ```
@@ -180,7 +180,7 @@ Lines of Python Code:    ~2000+
 Documentation Pages:      10
 Installation Methods:     3
 Supported Platforms:      3 (macOS, Linux, Windows)
-Python Versions:          6 (3.8, 3.9, 3.10, 3.11, 3.12, 3.13)
+Python Versions:          4 (3.10, 3.11, 3.12, 3.13)
 Node.js Versions:         5+ (16+)
 GraphQL Tools:            145+
 Release Scripts:          6
@@ -204,7 +204,7 @@ Very lightweight! 🎉
 ## 🎓 Learning Resources Included
 
 1. **README.md** - Main documentation
-2. **QUICKSTART.md** - Get started in 5 minutes
+2. **HOSTED.md** - Deploy and connect the hosted connector
 3. **ENDPOINT_GUIDE.md** - API reference
 4. **RELEASE_GUIDE.md** - How to release
 5. **RELEASE_CHECKLIST.md** - Pre-release tasks
@@ -399,7 +399,7 @@ You have created a **complete, production-ready MCP server** with:
 
 **Built with ❤️ for the Nife.io and Claude communities**
 
-**Version 1.0.0 - November 9, 2025**
+**Version 1.0.4**
 
 ---
 

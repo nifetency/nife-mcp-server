@@ -30,13 +30,13 @@ That's it! 🎉
 - URL: https://pypi.org/project/nife-mcp-server/
 
 ### NPM (Node Package)
-- Package: `@nife/mcp-server`
-- Install: `npx @nife/mcp-server`
-- URL: https://www.npmjs.com/package/@nife/mcp-server
+- Package: `@nifelabs/mcp-server`
+- Install: `npx @nifelabs/mcp-server`
+- URL: https://www.npmjs.com/package/@nifelabs/mcp-server
 
 ### GitHub (Source)
-- Release: `v1.0.0`
-- URL: https://github.com/nife-io/nife-mcp-server
+- Release: `v1.0.4`
+- URL: https://github.com/nifetency/nife-mcp-server
 
 ---
 
@@ -69,7 +69,7 @@ npm login
 
 ```bash
 # Test locally
-pip install dist/nife_mcp_server-1.0.0-py3-none-any.whl
+pip install dist/nife_mcp_server-1.0.4-py3-none-any.whl
 nife-mcp-server
 # Ctrl+C to stop
 
@@ -94,9 +94,9 @@ npm publish --access public
 
 ### GitHub Only
 ```bash
-git tag -a v1.0.0 -m "Release v1.0.0"
-git push origin v1.0.0
-gh release create v1.0.0 --notes-file CHANGELOG.md dist/*
+git tag -a v1.0.4 -m "Release v1.0.4"
+git push origin v1.0.4
+gh release create v1.0.4 --notes-file CHANGELOG.md dist/*
 ```
 
 ---
@@ -109,10 +109,10 @@ gh release create v1.0.0 --notes-file CHANGELOG.md dist/*
 pip install nife-mcp-server
 
 # NPM
-npx @nife/mcp-server
+npx @nifelabs/mcp-server
 
 # GitHub
-git clone https://github.com/nife-io/nife-mcp-server.git
+git clone https://github.com/nifetency/nife-mcp-server.git
 ```
 
 ### 2. Test Installation
@@ -130,7 +130,7 @@ nife-mcp-server
   "mcpServers": {
     "nife": {
       "command": "npx",
-      "args": ["-y", "@nife/mcp-server"],
+      "args": ["-y", "@nifelabs/mcp-server"],
       "env": {
         "NIFE_ACCESS_TOKEN": "your_token"
       }
@@ -165,7 +165,7 @@ npm publish --dry-run
 
 ```bash
 # Twitter
-🚀 Just released Nife MCP Server v1.0.0!
+🚀 Just released Nife MCP Server v1.0.4!
 Easy Claude + Nife.io integration
 pip install nife-mcp-server
 
@@ -247,6 +247,7 @@ For v1.0.1 (patch) or v1.1.0 (minor):
 ```bash
 # 1. Update version in:
 #    - setup.py
+#    - src/nife_mcp_server/__init__.py
 #    - pyproject.toml  
 #    - package.json
 

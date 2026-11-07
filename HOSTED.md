@@ -71,11 +71,12 @@ the user's disk). Use a Git repo or a public archive URL.
 Build and run locally:
 
 ```bash
- docker run --rm -p 8100:8000 ^
-  -e NIFE_MCP_OAUTH_SECRET= y8SZICjpV3m5SFv_6Rb9rKs6qE0qH0hhXaNhbDtmh4k^
-  -e NIFE_GRAPHQL_URL=https://nife.io/graphql ^
-  -e NIFE_EXPRESS_URL=https://clb2.nifetency.com ^
-  -e NIFE_MCP_LOGIN_URL=http://localhost:8080/login 
+docker build -t nife-mcp-server .
+docker run --rm -p 8100:8000 \
+  -e NIFE_MCP_OAUTH_SECRET=<long-random-string> \
+  -e NIFE_GRAPHQL_URL=https://nife.io/graphql \
+  -e NIFE_EXPRESS_URL=https://clb2.nifetency.com \
+  -e NIFE_MCP_LOGIN_URL=http://localhost:8080/login \
   nife-mcp-server
 ```
 

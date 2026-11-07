@@ -41,9 +41,9 @@ http = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/nifetency/nife-mcp-graphql"
-Documentation = "https://github.com/nifetency/nife-mcp-graphql/blob/main/README.md"
-Repository = "https://github.com/nifetency/nife-mcp-graphql"
+Homepage = "https://github.com/nifetency/nife-mcp-server"
+Documentation = "https://github.com/nifetency/nife-mcp-server/blob/main/README.md"
+Repository = "https://github.com/nifetency/nife-mcp-server"
 
 [project.scripts]
 nife-mcp-server = "nife_mcp_server.intelligent_main:run"

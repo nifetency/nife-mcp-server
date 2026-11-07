@@ -49,7 +49,7 @@ npx @nifelabs/mcp-server@latest
 ### Option 3: From Source
 
 ```bash
-git clone https://github.com/nifetency/nife-mcp-graphql
+git clone https://github.com/nifetency/nife-mcp-server
 cd nife-mcp-server
 pip install -r requirements.txt
 ```
@@ -174,12 +174,15 @@ nife-mcp-server
 python -m nife_mcp_server.intelligent_main
 ```
 
-The server will start on `http://0.0.0.0:5000`
+The server speaks MCP over stdin/stdout, so it is normally launched by your MCP client (e.g. Claude Desktop) rather than run by hand. It does not listen on a network port.
+
+To run the hosted HTTP connector instead, install the `http` extra (`pip install "nife-mcp-server[http]"`) and run `nife-mcp-http`. It listens on `PORT` (default 8000); see [HOSTED.md](HOSTED.md).
 
 ### Environment Variables
 
 - `NIFE_ACCESS_TOKEN` - Your Nife.io access token
-- `NIFE_API_ENDPOINT` - Custom GraphQL endpoint (optional)
+
+The GraphQL endpoint is fixed to `https://api.nife.io/graphql`. The hosted connector has its own settings, listed in [HOSTED.md](HOSTED.md).
 
 ### Example Usage with Claude
 
@@ -241,7 +244,7 @@ The server provides full access to Nife.io's GraphQL API:
 
 ```bash
 # Clone the repository
-git clone https://github.com/nifetency/nife-mcp-graphql
+git clone https://github.com/nifetency/nife-mcp-server
 cd nife-mcp-server
 
 # Create virtual environment
@@ -306,10 +309,10 @@ We love contributions! Please see our [Contributing Guide](CONTRIBUTING.md) for 
 
 ##  Stats
 
-![GitHub stars](https://img.shields.io/github/stars/nife-io/nife-mcp-server?style=social)
-![GitHub forks](https://img.shields.io/github/forks/nife-io/nife-mcp-server?style=social)
-![GitHub issues](https://img.shields.io/github/issues/nife-io/nife-mcp-server)
-![GitHub pull requests](https://img.shields.io/github/issues-pr/nife-io/nife-mcp-server)
+![GitHub stars](https://img.shields.io/github/stars/nifetency/nife-mcp-server?style=social)
+![GitHub forks](https://img.shields.io/github/forks/nifetency/nife-mcp-server?style=social)
+![GitHub issues](https://img.shields.io/github/issues/nifetency/nife-mcp-server)
+![GitHub pull requests](https://img.shields.io/github/issues-pr/nifetency/nife-mcp-server)
 
 ##  License
 
@@ -324,9 +327,9 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ##  Support
 
 -  Email: support@nife.io
--  Issues: [GitHub Issues](https://github.com/nife-io/nife-mcp-server/issues)
--  Discussions: [GitHub Discussions](https://github.com/nife-io/nife-mcp-server/discussions)
--  Documentation: [Full Docs](https://github.com/nife-io/nife-mcp-server#readme)
+-  Issues: [GitHub Issues](https://github.com/nifetency/nife-mcp-server/issues)
+-  Discussions: [GitHub Discussions](https://github.com/nifetency/nife-mcp-server/discussions)
+-  Documentation: [Full Docs](https://github.com/nifetency/nife-mcp-server#readme)
 
 ##  Roadmap
 
@@ -342,7 +345,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 If you find this project useful, please consider giving it a star!
 
-[![Star History Chart](https://api.star-history.com/svg?repos=nife-io/nife-mcp-server&type=Date)](https://star-history.com/#nife-io/nife-mcp-server&Date)
+[![Star History Chart](https://api.star-history.com/svg?repos=nifetency/nife-mcp-server&type=Date)](https://star-history.com/#nifetency/nife-mcp-server&Date)
 
 ---
 

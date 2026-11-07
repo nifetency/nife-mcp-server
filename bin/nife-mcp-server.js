@@ -31,7 +31,7 @@ const pythonProcess = spawn(pythonCmd, args, {
 // Handle process exit
 pythonProcess.on('error', (error) => {
   console.error('Failed to start Nife MCP Server:', error.message);
-  console.error('\nMake sure Python 3.8+ is installed and in your PATH.');
+  console.error('\nMake sure Python 3.10+ is installed and in your PATH.');
   console.error('Try running: python3 --version');
   process.exit(1);
 });

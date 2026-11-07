@@ -128,7 +128,7 @@ We love contributions! Here are some ways you can help:
 
 ### Prerequisites
 
-- Python 3.8 or higher
+- Python 3.10 or higher
 - Node.js 16+ (for NPM testing)
 - Git
 - Virtual environment tool
@@ -137,7 +137,7 @@ We love contributions! Here are some ways you can help:
 
 1. **Clone and navigate**
    ```bash
-   git clone https://github.com/nife-io/nife-mcp-server.git
+   git clone https://github.com/nifetency/nife-mcp-server.git
    cd nife-mcp-server
    ```
 
@@ -176,8 +176,8 @@ nife-mcp-server/
 │       ├── schema_manager.py    # GraphQL schema handling
 │       └── routes/
 │           └── mcp.py           # MCP route handlers
-├── tests/                       # Test files (to be added)
-├── docs/                        # Documentation
+├── tests/                       # Test suite
+├── Dockerfile                   # Container image for the hosted server
 └── bin/                         # Executable scripts
 ```
 
@@ -333,7 +333,7 @@ pytest
 pytest --cov=nife_mcp_server
 
 # Run specific test
-pytest tests/test_schema.py
+pytest tests/test_http_app.py
 ```
 
 ### Writing Tests
@@ -362,7 +362,7 @@ def test_invalid_endpoint():
 
 - Update README.md for user-facing changes
 - Update inline code comments
-- Add examples to QUICKSTART.md
+- Add examples to README.md
 - Update API docs in ENDPOINT_GUIDE.md
 
 ### Writing Good Documentation
@@ -427,4 +427,4 @@ Your contributions make Nife MCP Server better for everyone. We appreciate your 
 
 **Happy Contributing!** 🚀
 
-*Last updated: November 9, 2025*
+*Last updated: November 7, 2026*

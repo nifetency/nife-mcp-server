@@ -23,9 +23,9 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/nifetency/nife-mcp-graphql"
+    "url": "https://github.com/nifetency/nife-mcp-server"
   },
-  "homepage": "https://github.com/nifetency/nife-mcp-graphql/blob/main/README.md",
+  "homepage": "https://github.com/nifetency/nife-mcp-server/blob/main/README.md",
   "engines": {
     "node": ">=16.0.0"
   },
