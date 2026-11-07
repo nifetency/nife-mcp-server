@@ -73,6 +73,30 @@ def test_health_is_public(client):
     assert client.get("/health").json()["status"] == "ok"
 
 
+def test_glama_claim_is_public_and_does_not_redirect(client):
+    r = client.get("/mcp/.well-known/glama.json", follow_redirects=False)
+    assert r.status_code == 200
+    assert r.headers["content-type"] == "application/json"
+    assert "location" not in r.headers
+    assert "www-authenticate" not in r.headers
+    assert r.json() == {
+        "$schema": "https://glama.ai/mcp/schemas/connector.json",
+        "claim": "glama_claim_138g5Mc4xxNowLypLtSR9Q8SncEkCkQ9",
+    }
+
+
+@pytest.mark.parametrize("method,path", [
+    ("POST", "/mcp/.well-known/glama.json"),
+    ("GET", "/mcp/.well-known/other.json"),
+    ("GET", "/mcp/.well-known/glama.json/"),
+    ("GET", "/mcp"),
+])
+def test_glama_claim_does_not_bypass_auth_for_other_requests(client, method, path):
+    r = client.request(method, path, follow_redirects=False)
+    assert r.status_code == 401
+    assert r.headers["www-authenticate"].startswith("Bearer")
+
+
 def test_mcp_requires_bearer(client):
     r = rpc(client, "tools/list", token=None)
     assert r.status_code == 401
