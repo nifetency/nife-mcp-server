@@ -156,6 +156,52 @@ def register_infra_tools(mcp: FastMCP) -> None:
         )
         return data.get("getUserPermissionsByPlan") or {"message": "No plan information is available."}
 
+    # ========================================================= clusters and pools
+    @mcp.tool(annotations=READ_ONLY, title="List managed clusters")
+    @guarded
+    async def list_managed_clusters(organization_id: OrgId, ctx: Context) -> Dict[str, Any]:
+        """Kubernetes clusters Nife provisioned for an organization: cloud, region, version, status
+        and node pools with their current size. Kubeconfig and endpoints are never returned."""
+        api = get_api(ctx)
+        await require_org(api, organization_id)
+        data = await api.graphql(
+            """query ManagedClusters($orgId: String!) {
+                 listManagedClusters(orgId: $orgId) {
+                   id clusterName cloud region k8sVersion status createdAt errorMessage
+                   nodePools { name instanceType minNodes maxNodes currentNodes diskSizeGb status }
+                 }
+               }""",
+            {"orgId": organization_id},
+        )
+        clusters = [c for c in data.get("listManagedClusters") or [] if c]
+        for c in clusters:
+            c["errorMessage"] = o.clip(c.get("errorMessage"), 400)
+        failed = [c["clusterName"] for c in clusters if c.get("status") == "failed"]
+        return {"clusters": clusters, "count": len(clusters),
+                "attention": [f"Cluster {n} failed to provision or update." for n in failed]}
+
+    @mcp.tool(annotations=READ_ONLY, title="List VM node pools")
+    @guarded
+    async def list_vm_node_pools(organization_id: OrgId, ctx: Context) -> Dict[str, Any]:
+        """Pools of provisioned virtual machines for an organization: cloud, region, instance type,
+        VM count, mode and status."""
+        api = get_api(ctx)
+        await require_org(api, organization_id)
+        data = await api.graphql(
+            """query VmNodePools($orgId: String!) {
+                 listVMNodePools(orgId: $orgId) {
+                   id poolName cloud region instanceType count mode status createdAt errorMessage
+                 }
+               }""",
+            {"orgId": organization_id},
+        )
+        pools = [p for p in data.get("listVMNodePools") or [] if p]
+        for p in pools:
+            p["errorMessage"] = o.clip(p.get("errorMessage"), 400)
+        degraded = [p["poolName"] for p in pools if p.get("status") == "degraded"]
+        return {"pools": pools, "count": len(pools),
+                "attention": [f"Node pool {n} is degraded." for n in degraded]}
+
     # =============================================================== agents
     @mcp.tool(annotations=READ_ONLY, title="List agents")
     @guarded

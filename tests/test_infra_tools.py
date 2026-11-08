@@ -20,8 +20,9 @@ def test_all_infra_tools_register_and_only_read():
     infra_tools.register_infra_tools(mcp)
     tools = mcp._tool_manager.list_tools()
     names = [t.name for t in tools]
-    assert len(names) == len(set(names)) == 9
-    assert {"list_cloud_accounts", "list_agents", "get_resource_forecast", "list_roles"} <= set(names)
+    assert len(names) == len(set(names)) == 11
+    assert {"list_cloud_accounts", "list_agents", "get_resource_forecast", "list_roles",
+            "list_managed_clusters", "list_vm_node_pools"} <= set(names)
     for t in tools:
         assert t.annotations.readOnlyHint is True and t.annotations.destructiveHint is False, t.name
 
@@ -88,7 +89,7 @@ AGENTS = {"OwnAgents": {"listAgents": [{"id": "a1", "clusterID": "c1"}]}}
 
 def test_org_keyed_tools_reject_a_foreign_organization(monkeypatch):
     api = FakeAPI()
-    for name in ("list_cloud_accounts", "get_resource_forecast"):
+    for name in ("list_cloud_accounts", "get_resource_forecast", "list_managed_clusters", "list_vm_node_pools"):
         with pytest.raises(ToolError, match="Unknown organization_id"):
             _run(monkeypatch, api, name, organization_id="org-other")
     for name in ("list_business_units", "list_agents"):
@@ -130,6 +131,28 @@ def test_roles_are_condensed_to_allowed_actions(monkeypatch):
     out = _run(monkeypatch, FakeAPI({"Roles": {"getRoles": roles}}), "list_roles")
     assert out["count"] == 1
     assert out["roles"][0]["permissions"] == [{"module": "apps", "can": ["view"]}]
+
+
+def test_managed_clusters_never_ask_for_kubeconfig_and_flag_failures(monkeypatch):
+    clusters = [{"clusterName": "prod", "status": "active"},
+                {"clusterName": "dev", "status": "failed", "errorMessage": "e" * 900}, None]
+    api = FakeAPI({"ManagedClusters": {"listManagedClusters": clusters}})
+    out = _run(monkeypatch, api, "list_managed_clusters", organization_id="org-1")
+    assert out["count"] == 2 and out["attention"] == ["Cluster dev failed to provision or update."]
+    assert len(out["clusters"][1]["errorMessage"]) < 900
+    assert api.calls[0][1] == {"orgId": "org-1"}
+    # the query text itself must not select the credentials-bearing fields
+    import inspect
+    source = inspect.getsource(infra_tools.register_infra_tools)
+    query = source.split("query ManagedClusters")[1].split('"""')[0]
+    assert "kubeconfig" not in query and "endpoint" not in query and "pulumiStack" not in query
+
+
+def test_vm_node_pools_flag_degraded_ones(monkeypatch):
+    pools = [{"poolName": "a", "status": "ready"}, {"poolName": "b", "status": "degraded"}]
+    out = _run(monkeypatch, FakeAPI({"VmNodePools": {"listVMNodePools": pools}}),
+               "list_vm_node_pools", organization_id="org-1")
+    assert out["count"] == 2 and out["attention"] == ["Node pool b is degraded."]
 
 
 def test_plan_limits_message_when_empty(monkeypatch):

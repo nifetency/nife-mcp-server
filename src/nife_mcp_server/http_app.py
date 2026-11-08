@@ -17,6 +17,7 @@ from starlette.requests import Request
 from starlette.responses import JSONResponse
 
 from nife_mcp_server.app_tools import APP_INSTRUCTIONS, register_app_tools
+from nife_mcp_server.cron_tools import CRON_INSTRUCTIONS, register_cron_tools
 from nife_mcp_server.domain_tools import DOMAIN_INSTRUCTIONS, register_domain_tools
 from nife_mcp_server.http_auth import AuthMiddleware
 from nife_mcp_server.infra_tools import INFRA_INSTRUCTIONS, register_infra_tools
@@ -41,7 +42,7 @@ mcp = FastMCP(
     "nife",
     instructions=(
         SERVER_INSTRUCTIONS + APP_INSTRUCTIONS + DOMAIN_INSTRUCTIONS + OPS_INSTRUCTIONS
-        + PLATFORM_INSTRUCTIONS + INFRA_INSTRUCTIONS + VM_INSTRUCTIONS
+        + PLATFORM_INSTRUCTIONS + INFRA_INSTRUCTIONS + VM_INSTRUCTIONS + CRON_INSTRUCTIONS
     ),
     host="0.0.0.0",
     port=PORT,
@@ -55,6 +56,7 @@ register_ops_tools(mcp)
 register_platform_tools(mcp)
 register_infra_tools(mcp)
 register_vm_tools(mcp)
+register_cron_tools(mcp)
 register_oauth_routes(mcp)
 
 

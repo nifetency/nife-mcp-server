@@ -213,6 +213,7 @@ These tools only read. Cloud credentials and kubeconfig locations are never requ
 | Tool | What it does |
 |------|--------------|
 | `list_cloud_accounts` | Cloud accounts connected to an organization, without credentials |
+| `list_managed_clusters`, `list_vm_node_pools` | Provisioned Kubernetes clusters (no kubeconfig) and VM pools |
 | `list_business_units`, `list_roles`, `get_plan_limits` | Business units; role permissions; what the plan allows |
 | `list_agents`, `get_agent_metrics` | Nife agents in customer clusters; cluster, node and app usage |
 | `get_agent_security_findings`, `get_agent_health_checks` | Findings with remediation; health checks per cluster |
@@ -226,6 +227,13 @@ The forecast service address can be changed with `NIFE_LSTM_URL`.
 |------|--------------|
 | `vm_power_action` | Start, stop or restart a server or VM. Previews unless `confirm=true` |
 | `validate_cloud_account` | Re-check a cloud account's credentials and update its status |
+
+**Cron jobs**
+
+| Tool | What it does |
+|------|--------------|
+| `list_cron_job_runs`, `get_cron_job_run_logs` | Run history with failure reasons; the tail of one run's log |
+| `trigger_cron_job_run` | Start a run now. Previews unless `confirm=true` |
 
 ##  Usage
 

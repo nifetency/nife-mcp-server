@@ -6,7 +6,7 @@ from mcp.server.fastmcp import FastMCP
 from mcp.server.fastmcp.exceptions import ToolError
 
 from nife_mcp_server import (
-    app_tools, domain_tools, infra_tools, ops_tools, platform_tools, site_tools, vm_tools,
+    app_tools, cron_tools, domain_tools, infra_tools, ops_tools, platform_tools, site_tools, vm_tools,
 )
 from nife_mcp_server.nife_api import NifeAPIError
 
@@ -39,7 +39,7 @@ def test_no_tool_name_is_registered_twice_across_the_hosted_server():
         site_tools.register_site_tools, app_tools.register_app_tools,
         domain_tools.register_domain_tools, ops_tools.register_ops_tools,
         platform_tools.register_platform_tools, infra_tools.register_infra_tools,
-        vm_tools.register_vm_tools,
+        vm_tools.register_vm_tools, cron_tools.register_cron_tools,
     ]
     per_module = [_names(r) for r in registers]
     combined = FastMCP("test")
