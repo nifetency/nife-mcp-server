@@ -40,6 +40,9 @@ class IntelligentNifeMCPServer:
         self.schema_manager = SchemaManager()
         self.tools: Dict[str, Dict] = {}
         self.ready = False
+        # Curated tools shared with the hosted connector (optional dependencies)
+        self.curated = None
+        self._curated_cache: Optional[List[Dict[str, Any]]] = None
         
     async def initialize(self) -> bool:
         """Initialize server by loading schema and generating tools"""
@@ -55,6 +58,9 @@ class IntelligentNifeMCPServer:
         else:
             logger.warning("⚠️  No access token - some features may not work")
         
+        # Curated tools (also offered by the hosted connector); they do not need the schema
+        self._load_curated(access_token)
+
         # Load schema
         logger.info("Loading GraphQL schema...")
         success = self.schema_manager.load_schema()
@@ -74,6 +80,33 @@ class IntelligentNifeMCPServer:
         
         return True
     
+    def _load_curated(self, access_token: Optional[str]) -> None:
+        """Load the curated tools. Needs the optional dependencies; the server runs without them."""
+        if self.curated is not None:
+            return
+        try:
+            from nife_mcp_server.stdio_tools import CuratedTools
+            self.curated = CuratedTools(access_token)
+            logger.info("✓ Curated tools loaded")
+        except ImportError as exc:
+            logger.warning(
+                "Curated tools are off (%s). To enable them: pip install \"nife-mcp-server[http]\"", exc
+            )
+        except Exception:
+            logger.error("Curated tools could not be loaded", exc_info=True)
+
+    async def _curated_listing(self) -> List[Dict[str, Any]]:
+        """Curated tool descriptors. A schema-generated tool with the same name wins."""
+        if self.curated is None:
+            return []
+        if self._curated_cache is None:
+            listing = await self.curated.list()
+            self._curated_cache = [t for t in listing if t["name"] not in self.tools]
+        return self._curated_cache
+
+    async def _curated_names(self) -> set:
+        return {t["name"] for t in await self._curated_listing()}
+
     def _generate_tools(self):
         """Generate MCP tools dynamically from schema"""
         self.tools = {}
@@ -496,6 +529,7 @@ class IntelligentNifeMCPServer:
             "tools_count": len(self.tools),
             "queries_count": len(self.schema_manager.queries_cache),
             "mutations_count": len(self.schema_manager.mutations_cache),
+            "curated_tools_count": len(self._curated_cache or []),
             "timestamp": datetime.now(timezone.utc).isoformat()
         }
     
@@ -517,6 +551,7 @@ class IntelligentNifeMCPServer:
                     "result": {
                         "protocolVersion": "2024-11-05",
                         "capabilities": {"tools": {}},
+                        **({"instructions": self.curated.instructions} if self.curated is not None else {}),
                         "serverInfo": {
                             "name": "intelligent-nife-mcp-server",
                             "version": __version__
@@ -528,6 +563,17 @@ class IntelligentNifeMCPServer:
                 logger.info("✓ Client initialized successfully")
                 return None
             
+            elif method == "tools/list" and self.curated is not None:
+                native = [
+                    {"name": t["name"], "description": t["description"], "inputSchema": t["inputSchema"]}
+                    for t in self.tools.values()
+                ]
+                return {
+                    "jsonrpc": "2.0",
+                    "id": request_id,
+                    "result": {"tools": native + await self._curated_listing()},
+                }
+
             elif method == "tools/list":
                 return {
                     "jsonrpc": "2.0",
@@ -544,6 +590,10 @@ class IntelligentNifeMCPServer:
                     }
                 }
             
+            elif method == "tools/call" and params.get("name") in await self._curated_names():
+                result = await self.curated.call(params["name"], params.get("arguments", {}))
+                return {"jsonrpc": "2.0", "id": request_id, "result": result}
+
             elif method == "tools/call":
                 tool_name = params.get("name")
                 tool_arguments = params.get("arguments", {})

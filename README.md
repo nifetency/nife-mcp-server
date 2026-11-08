@@ -164,7 +164,7 @@ Your Nife.io integration is now active! 🎉
 
 ##  Hosted connector tools: reliability, cost and platform
 
-The hosted connector (`nife-mcp-http`) adds curated tools on top of the site, app and custom-domain tools. They are not part of the stdio server (`intelligent_main.py`), which builds its tools from the GraphQL schema. Every call is made with the caller's own token. Organization-keyed tools check membership first, and alert, billing cycle and recommendation ids are checked against the caller's own lists before use.
+The hosted connector (`nife-mcp-http`) adds curated tools on top of the site, app and custom-domain tools. The stdio server (`intelligent_main.py`) loads the same tools next to its schema-generated ones when the optional dependencies are installed (`pip install "nife-mcp-server[http]"`, or `pip install -r requirements.txt`). It uses `NIFE_ACCESS_TOKEN` as the caller's token. Without those packages it runs with only the schema-generated tools and logs a hint on stderr. Every call is made with the caller's own token. Organization-keyed tools check membership first, and alert, billing cycle and recommendation ids are checked against the caller's own lists before use.
 
 **Reliability (NERO)**
 
@@ -346,7 +346,16 @@ nife-mcp-server/
 │       ├── http_app.py          # Hosted (Streamable HTTP) connector
 │       ├── http_auth.py         # Auth for the hosted connector
 │       ├── oauth.py             # OAuth support
-│       ├── site_tools.py        # Additional site tools
+│       ├── nife_api.py          # Async client (GraphQL, express-backend, FinOps)
+│       ├── tool_utils.py        # Shared tool helpers and ownership checks
+│       ├── site_tools.py        # Site deploy, manage and inspect tools
+│       ├── app_tools.py         # Container app tools
+│       ├── domain_tools.py      # Custom-domain tools
+│       ├── ops_tools.py         # NERO and FinOps tools
+│       ├── platform_tools.py    # Delivery, compliance, usage and capacity tools
+│       ├── infra_tools.py       # Cloud accounts, clusters, agents, governance
+│       ├── vm_tools.py          # VM power actions and cloud account checks
+│       ├── cron_tools.py        # Cron job runs
 │       └── routes/
 │           └── mcp.py          # MCP route handlers
 ├── tests/                      # Test suite

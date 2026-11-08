@@ -25,13 +25,40 @@ DESTRUCTIVE = ToolAnnotations(
 )
 
 
+# Set only by the local stdio server (stdio_tools.py). The hosted connector never sets it,
+# and a call that arrives over HTTP never falls back to it.
+_stdio_authorization: Optional[str] = None
+
+
+def set_stdio_token(token: Optional[str]) -> None:
+    """Register the local user's token for calls that have no HTTP request (stdio)."""
+    global _stdio_authorization
+    token = (token or "").strip()
+    if not token:
+        _stdio_authorization = None
+    else:
+        _stdio_authorization = token if token.lower().startswith("bearer ") else f"Bearer {token}"
+
+
 def get_api(ctx: Context) -> NifeAPI:
-    """Build a per-request client from the caller's Authorization header."""
-    request = getattr(ctx.request_context, "request", None)
-    auth = request.headers.get("authorization") if request is not None else None
-    if not auth:
-        raise ToolError("Missing Authorization header on the MCP connection.")
-    return NifeAPI(auth)
+    """Build a per-request client from the caller's Authorization header.
+
+    Over HTTP the header is required. Without an HTTP request (the local stdio server) the
+    token registered with set_stdio_token is used instead."""
+    try:
+        request = getattr(ctx.request_context, "request", None)
+    except ValueError:  # FastMCP raises this when there is no request context (stdio)
+        request = None
+    if request is not None:
+        auth = request.headers.get("authorization")
+        if not auth:
+            raise ToolError("Missing Authorization header on the MCP connection.")
+        return NifeAPI(auth)
+    if _stdio_authorization:
+        return NifeAPI(_stdio_authorization)
+    raise ToolError(
+        "Missing Authorization header on the MCP connection (stdio: set NIFE_ACCESS_TOKEN)."
+    )
 
 
 def fail(exc: Exception) -> ToolError:

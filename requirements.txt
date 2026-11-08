@@ -6,6 +6,12 @@ idna==3.10
 urllib3>=2.6.3
 typing_extensions==4.14.0
 
+# Optional: the curated tools in the stdio server (the same tools as the hosted connector).
+# Without these the stdio server still runs, with only its schema-generated tools.
+mcp>=1.10,<2
+httpx>=0.27
+cryptography>=42
+
 # Optional: REST API layer (routes/mcp.py)
 # Remove these if only running the MCP stdio server.
 Flask==3.1.1

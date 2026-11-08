@@ -54,3 +54,7 @@ package-dir = {"" = "src"}
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.pytest.ini_options]
+# The root-level test_endpoint.py is a connectivity script (python test_endpoint.py), not a test.
+testpaths = ["tests"]
