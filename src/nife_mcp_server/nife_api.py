@@ -35,6 +35,10 @@ UPTIME_KUMA_URL = os.environ.get(
 FINOPS_URL = os.environ.get(
     "NIFE_FINOPS_URL", "https://platus.clb2.nifetency.com"
 ).rstrip("/")
+# Nia usage-forecast service (LSTM): the dashboard's forecast.rest.ts
+LSTM_URL = os.environ.get(
+    "NIFE_LSTM_URL", "https://lstm.on.nifetency.com"
+).rstrip("/")
 
 
 class NifeAPIError(Exception):
@@ -1013,6 +1017,15 @@ class NifeAPI:
             return resp.json()
         except ValueError:
             return {}
+
+    async def lstm_get(self, path: str) -> Any:
+        """GET on the Nia forecast service with the caller's token. Returns None when the service
+        has no metrics for the request (the dashboard treats 204, 404 and 422 the same way)."""
+        resp = await send("GET", f"{LSTM_URL}{path}", headers=self._headers, timeout=60.0)
+        if resp.status_code in (204, 404, 422):
+            return None
+        _check_status(resp)
+        return _json(resp)
 
     # ------------------------------------------------- container apps (GraphQL)
     # Operation names and fields mirror nife.io/api/apps.graphqls and deploy.graphqls.

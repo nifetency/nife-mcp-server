@@ -162,7 +162,7 @@ Your Nife.io integration is now active! 🎉
 - [Release Guide](RELEASE_GUIDE.md) - For contributors and maintainers
 - [Contributing](CONTRIBUTING.md) - How to contribute
 
-##  Hosted connector tools: reliability and cost
+##  Hosted connector tools: reliability, cost and platform
 
 The hosted connector (`nife-mcp-http`) adds curated tools on top of the site, app and custom-domain tools. They are not part of the stdio server (`intelligent_main.py`), which builds its tools from the GraphQL schema. Every call is made with the caller's own token. Organization-keyed tools check membership first, and alert, billing cycle and recommendation ids are checked against the caller's own lists before use.
 
@@ -190,6 +190,42 @@ The hosted connector (`nife-mcp-http`) adds curated tools on top of the site, ap
 | `get_cost_breakdown` | Cost explorer: total grouped by provider, service or region |
 | `search_finops_resources`, `get_finops_resource_stats` | Multi-cloud inventory with monthly cost |
 | `apply_cost_recommendation` | Carries out one recommendation. Previews unless `confirm=true` |
+
+**Platform, delivery and compliance (read-only)**
+
+| Tool | What it does |
+|------|--------------|
+| `get_org_dora_metrics` | Deployment frequency, lead time, change failure rate and time to restore |
+| `get_deployment_history`, `get_incident_history` | Deployment and incident events of one app |
+| `get_usage_summary`, `get_app_cost`, `get_app_usage_metrics` | Running cost per account and app; CPU, memory and network usage |
+| `estimate_deployment_cost`, `get_credits` | Price a deployment before making it; prepaid balance and transactions |
+| `get_volume_overview`, `get_app_failover` | Volumes, health and snapshots; failover targets and which one serves |
+| `list_clusters`, `get_cluster_capacity` | Regions and clusters; free CPU, memory, storage and pods |
+| `list_cloud_hosts`, `list_workloads` | Connected servers and VMs; workload environments |
+| `list_backup_policies`, `get_restore_history` | Backup schedules and restore results |
+| `get_capacity_thresholds`, `get_usage_report_subscription` | Capacity alert thresholds; emailed usage report schedule |
+| `get_audit_log_summary`, `get_regulatory_reporting`, `get_incident_regulatory_reports` | Audit trail size; on-time reporting to CERT-In, DPB, RBI, SEBI or IRDAI |
+
+These tools only read. Cloud credentials and kubeconfig locations are never requested.
+
+**Infrastructure and governance (read-only)**
+
+| Tool | What it does |
+|------|--------------|
+| `list_cloud_accounts` | Cloud accounts connected to an organization, without credentials |
+| `list_business_units`, `list_roles`, `get_plan_limits` | Business units; role permissions; what the plan allows |
+| `list_agents`, `get_agent_metrics` | Nife agents in customer clusters; cluster, node and app usage |
+| `get_agent_security_findings`, `get_agent_health_checks` | Findings with remediation; health checks per cluster |
+| `get_resource_forecast` | Nia CPU and memory forecast for an organization or app (no charts) |
+
+The forecast service address can be changed with `NIFE_LSTM_URL`.
+
+**Virtual machines and cloud accounts (changes)**
+
+| Tool | What it does |
+|------|--------------|
+| `vm_power_action` | Start, stop or restart a server or VM. Previews unless `confirm=true` |
+| `validate_cloud_account` | Re-check a cloud account's credentials and update its status |
 
 ##  Usage
 
