@@ -1278,6 +1278,19 @@ class NifeAPI:
         )
         return data.get("updateRegistryIdToApp")
 
+    async def start_build(self, input_: Dict[str, Any]) -> Any:
+        """Build an image from a source archive (the dashboard's START_BUILD). The backend builds
+        synchronously and answers with the image, which can take several minutes, hence the long
+        timeout. A private repository's token is read by the backend from the secret linked to the app."""
+        data = await self.graphql(
+            """mutation StartBuild($input: StartBuildInput!) {
+                 startBuild(input: $input) { build { id status image } buildLogs }
+               }""",
+            {"input": input_},
+            timeout=330.0,
+        )
+        return data.get("startBuild")
+
     # --------------------------------------------------------------- PAT secrets
     async def list_pats(self) -> List[Dict[str, Any]]:
         """List the user's stored PATs (type + id only, never the token value)."""

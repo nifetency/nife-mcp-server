@@ -120,12 +120,10 @@ def test_tools_listed(client):
     by_name = {t["name"]: t for t in r.json()["result"]["tools"]}
     assert by_name["list_organizations"]["annotations"]["readOnlyHint"] is True
     assert by_name["redeploy_site"]["annotations"]["destructiveHint"] is True
-    # tokens must never be tool parameters. add_git_secret is the one deliberate
-    # exception: storing a PAT is its purpose, and the value is never returned.
+    # tokens must never be tool parameters (no exceptions: there is no tool that accepts a PAT)
+    assert "add_git_secret" not in by_name
     for t in by_name.values():
         params = " ".join(t["inputSchema"].get("properties", {})).lower().replace("pat_secret_name", "")
-        if t["name"] == "add_git_secret":
-            params = params.replace("token", "")
         assert "token" not in params, t["name"]
 
 

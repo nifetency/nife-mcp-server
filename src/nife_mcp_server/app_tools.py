@@ -7,12 +7,15 @@ caller's own token, which doubles as the ownership check before any mutation.
 import asyncio
 import json
 import logging
+import os
 import re
-from typing import Annotated, Any, Dict, List, Optional
+import secrets
+from typing import Annotated, Any, Dict, List, Optional, Tuple
 
 from mcp.server.fastmcp import Context, FastMCP
 from pydantic import Field
 
+from nife_mcp_server import git_access
 from nife_mcp_server import site_helpers as h
 from nife_mcp_server.nife_api import NifeAPI, NifeAPIError
 from nife_mcp_server.tool_utils import DESTRUCTIVE, READ_ONLY, WRITE, fail, get_api
@@ -34,6 +37,10 @@ CONTAINER APPS AND DEPLOYMENTS (separate from static sites)
   billable app, so confirm name, image, regions and size first. For a PRIVATE image pass
   registry_secret_name (a stored secret NAME, see list_git_secrets); never ask the user to paste
   credentials. To put a new image on an app that already exists use redeploy_app_image.
+- To BUILD AND DEPLOY A NEW APP FROM A GIT REPOSITORY (GitHub, GitLab or Bitbucket) use
+  deploy_app_from_git, same preparation as above. Call inspect_repository first. A PRIVATE repo needs
+  pat_secret_name (a stored token secret NAME, see list_git_secrets). The build runs on the platform
+  and can take several minutes. The repo needs a Dockerfile, or pass dockerfile_path / dockerfile.
 - If an app runs in several regions, pass region_code (shown by get_app); otherwise it is inferred.
 - Environment variable values are secrets: only names are ever returned.
 """
@@ -235,6 +242,90 @@ def _needs_approval(message: str) -> bool:
 def _approval_id(message: str) -> Optional[str]:
     match = re.search(r"Approval ID:\s*([A-Za-z0-9_-]+)", message, re.IGNORECASE)
     return match.group(1) if match else None
+
+
+# Account the platform's build service pushes built images to; the dashboard hardcodes the same
+# default for builds without a private registry.
+BUILD_NAMESPACE = os.environ.get("NIFE_BUILD_IMAGE_NAMESPACE", "nife123")
+_NAMESPACE_RE = re.compile(r"^[a-z0-9][a-z0-9_.-]{1,254}$")
+_DOCKERFILE_PATH = re.compile(r"^[A-Za-z0-9._/-]{1,200}$")
+MAX_DOCKERFILE_CHARS = 20000
+
+
+def _validate_dockerfile_path(path: str) -> None:
+    if not _DOCKERFILE_PATH.match(path) or path.startswith("/") or ".." in path.split("/"):
+        raise ValueError("dockerfile_path must be a relative path inside the repository, e.g. 'docker/Dockerfile'.")
+
+
+async def _require_secret(api: NifeAPI, name: str, *, provider: Optional[str] = None) -> None:
+    """The named vault secret must exist (and, for Git, be a token for this provider)."""
+    vault = await api.list_secrets()
+    match = next(
+        (s for s in vault if s.get("name") == name and (s.get("registryType") or "").lower() != "env"),
+        None,
+    )
+    if not match:
+        raise ValueError(f"No stored secret named '{name}'. Use list_git_secrets to see the available names.")
+    if provider and not h.secret_matches_provider(match.get("registryType"), provider):
+        raise ValueError(f"Secret '{name}' is not a {provider} token. Use list_git_secrets to find one that is.")
+
+
+async def _prepare_git_source(
+    api: NifeAPI, secret_name: Optional[str], repo_url: str, branch: Optional[str], ref_type: str
+) -> Tuple[str, bool, str]:
+    """Check the repository before anything is created. Returns (archive_url, private, branch)."""
+    if ref_type not in ("heads", "tags"):
+        raise ValueError("ref_type must be 'heads' or 'tags'")
+    if ref_type == "tags" and not branch:
+        raise ValueError("Pass the tag name as branch when ref_type='tags'.")
+    provider, owner, repo = h.parse_repo_url(repo_url)
+    if branch:
+        h.validate_branch(branch)
+    token = None
+    if secret_name:
+        await _require_secret(api, secret_name, provider=provider)
+        # Decrypted server-side only; never returned or logged.
+        token = h.decrypt_secret(await api.secret_value(secret_name))
+    report = await git_access.inspect_repository(repo_url, branch=branch, ref_type=ref_type, token=token)
+    notes = " ".join(report.get("notes") or [])
+    if not report.get("accessible"):
+        raise ValueError(f"The repository cannot be accessed. {notes}".strip())
+    private = report.get("visibility") == "private"
+    if private and not secret_name:
+        raise ValueError("This repository is private. Pass pat_secret_name (see list_git_secrets).")
+    if report.get("branch_exists") is False:
+        raise ValueError(f"Branch or tag '{branch}' was not found. {notes}".strip())
+    effective = report.get("branch")
+    if not effective:
+        raise ValueError("Could not determine which branch to build. Pass branch.")
+    return h.build_archive_url(provider, owner, repo, effective, ref_type), private, effective
+
+
+async def _build_image(
+    api: NifeAPI,
+    app_name: str,
+    source_url: str,
+    port: int,
+    dockerfile: Optional[str],
+    dockerfile_path: Optional[str],
+) -> str:
+    """Build the repository archive into an image on the platform and return the image name."""
+    if not _NAMESPACE_RE.match(BUILD_NAMESPACE):
+        raise ValueError("NIFE_BUILD_IMAGE_NAMESPACE is not a valid registry namespace.")
+    build_input: Dict[str, Any] = {
+        "appId": app_name, "sourceUrl": source_url, "sourceType": "git", "buildType": "Builtin",
+        "imageTag": f"{BUILD_NAMESPACE}/{app_name}:deployment-{secrets.token_hex(3)}",
+        "fileExtension": "zip", "internalPort": str(port),
+    }
+    if dockerfile:
+        build_input["dockerFile"] = dockerfile
+    if dockerfile_path:
+        build_input["dockerFilePath"] = dockerfile_path
+    result = await api.start_build(build_input)
+    image = ((result or {}).get("build") or {}).get("image")
+    if not image:
+        raise NifeAPIError("The build finished but returned no image.")
+    return image
 
 
 def register_app_tools(mcp: FastMCP) -> None:
@@ -445,19 +536,91 @@ def register_app_tools(mcp: FastMCP) -> None:
         registry_secret_name: Annotated[Optional[str], Field(description="NAME of a stored registry secret, for a PRIVATE image (see list_git_secrets). Never ask the user to paste credentials.")] = None,
     ) -> Dict[str, Any]:
         """Create and deploy a NEW container app from a Docker image, following the dashboard's
-        deploy sequence: create the app, set its regions, apply ports, replicas, size and
-        environment, read back the generated configuration, link the registry secret if any, and
+        deploy sequence: create the app, link the registry secret if any, apply ports, replicas,
+        size and environment, set its regions, read back the generated configuration, and
         deploy. This creates a billable app, so confirm the details with the user first. Returns once
         the deploy is submitted; follow it with get_app_status. If a step fails after the app was
         created, the app is left as a draft: call deploy_app again with the same name to resume.
-        To deploy to an app that already exists use redeploy_app_image."""
-        api = get_api(ctx)
+        To deploy to an app that already exists use redeploy_app_image. To build and deploy from a
+        Git repository use deploy_app_from_git."""
+        return await _deploy_new_app(
+            get_api(ctx), app_name=app_name, organization_id=organization_id, region_codes=region_codes,
+            port=port, external_port=external_port, replicas=replicas, cpu_cores=cpu_cores,
+            memory_mb=memory_mb, strategy=strategy, env=env, secret_name=registry_secret_name, image=image,
+        )
+
+    @mcp.tool(annotations=WRITE, title="Deploy new app from a Git repository")
+    async def deploy_app_from_git(
+        app_name: Annotated[str, Field(description="Name for the NEW app: 1-63 characters, lowercase letters, digits and '-'")],
+        repo_url: Annotated[str, Field(description="https URL of a GitHub, GitLab or Bitbucket repository, e.g. https://github.com/acme/api")],
+        organization_id: Annotated[str, Field(description="Organization id from list_organizations")],
+        region_codes: Annotated[List[str], Field(description="Region codes from list_app_regions", min_length=1, max_length=10)],
+        ctx: Context,
+        branch: Annotated[Optional[str], Field(description="Branch to build (the repository's default branch if omitted); the tag name when ref_type='tags'")] = None,
+        ref_type: Annotated[str, Field(description="'heads' for a branch (default) or 'tags' for a tag")] = "heads",
+        dockerfile_path: Annotated[Optional[str], Field(description="Path of the Dockerfile inside the repository, if it is not at the root")] = None,
+        dockerfile: Annotated[Optional[str], Field(description="Dockerfile CONTENT to build with instead of the repository's own; not together with dockerfile_path", max_length=MAX_DOCKERFILE_CHARS)] = None,
+        port: Annotated[int, Field(description="Port the container listens on", ge=1, le=65535)] = 3000,
+        external_port: Annotated[int, Field(description="Port exposed to the outside", ge=1, le=65535)] = 80,
+        replicas: Annotated[int, Field(description="Replica count (1-10)", ge=1, le=10)] = 2,
+        cpu_cores: Annotated[float, Field(description="CPU limit in cores, e.g. 0.5; the request is set to half", ge=0.1, le=16)] = 0.5,
+        memory_mb: Annotated[int, Field(description="Memory limit in MiB, e.g. 1024; the request is set to half", ge=64, le=32768)] = 1024,
+        strategy: Annotated[str, Field(description="Rollout strategy: rolling (default), rolling-update or recreate")] = "rolling",
+        env: Annotated[Optional[Dict[str, str]], Field(description="Environment variables as {NAME: value}. Values are encrypted server-side and never returned.")] = None,
+        pat_secret_name: Annotated[Optional[str], Field(description="NAME of a stored Git token secret, REQUIRED for a PRIVATE repository (see list_git_secrets). Never pass the token itself.")] = None,
+    ) -> Dict[str, Any]:
+        """Build a NEW container app from a Git repository and deploy it, following the dashboard's
+        sequence: check the repository, create the app, link the Git token for a private repository,
+        build the image on the platform, apply ports, replicas, size and environment, set the
+        regions, and deploy. The build can take several minutes. This creates a billable app, so
+        confirm the details with the user first; call inspect_repository beforehand. If a step fails
+        after the app was created, the app is left as a draft: call this tool again with the same
+        name to resume (the build runs again). To deploy a ready-made image use deploy_app."""
+        return await _deploy_new_app(
+            get_api(ctx), app_name=app_name, organization_id=organization_id, region_codes=region_codes,
+            port=port, external_port=external_port, replicas=replicas, cpu_cores=cpu_cores,
+            memory_mb=memory_mb, strategy=strategy, env=env, secret_name=pat_secret_name,
+            repo_url=repo_url, branch=branch, ref_type=ref_type,
+            dockerfile=dockerfile, dockerfile_path=dockerfile_path,
+        )
+
+    async def _deploy_new_app(
+        api: NifeAPI,
+        *,
+        app_name: str,
+        organization_id: str,
+        region_codes: List[str],
+        port: int,
+        external_port: int,
+        replicas: int,
+        cpu_cores: float,
+        memory_mb: int,
+        strategy: str,
+        env: Optional[Dict[str, str]],
+        secret_name: Optional[str],
+        image: Optional[str] = None,
+        repo_url: Optional[str] = None,
+        branch: Optional[str] = None,
+        ref_type: str = "heads",
+        dockerfile: Optional[str] = None,
+        dockerfile_path: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """The new-app sequence shared by deploy_app (a ready image) and deploy_app_from_git (an image
+        built from a repository first). ``secret_name`` is a registry secret for a private image, or a
+        Git token secret for a private repository."""
         app_id: Optional[str] = None
         resumed = False
         stage = "validating the request"
         try:
             _validate_new_app_name(app_name)
-            _validate_image(image)
+            is_git = repo_url is not None
+            if is_git:
+                if dockerfile and dockerfile_path:
+                    raise ValueError("Pass either dockerfile or dockerfile_path, not both.")
+                if dockerfile_path:
+                    _validate_dockerfile_path(dockerfile_path)
+            else:
+                _validate_image(image or "")
             if strategy not in DEPLOY_STRATEGIES:
                 raise ValueError(f"strategy must be one of: {', '.join(DEPLOY_STRATEGIES)}")
             env_args = _encrypted_env_args(env)
@@ -473,16 +636,14 @@ def register_app_tools(mcp: FastMCP) -> None:
                     f"Region(s) not available to this organization: {', '.join(unknown)}. "
                     f"Available: {', '.join(sorted(known)) or 'none'}. Use list_app_regions."
                 )
-            if registry_secret_name:
-                secrets = await api.list_secrets()
-                if not any(
-                    s.get("name") == registry_secret_name and (s.get("registryType") or "").lower() != "env"
-                    for s in secrets
-                ):
-                    raise ValueError(
-                        f"No stored registry secret named '{registry_secret_name}'. "
-                        "Use list_git_secrets to see the available names."
-                    )
+            source_url: Optional[str] = None
+            private_repo = False
+            if is_git:
+                source_url, private_repo, branch = await _prepare_git_source(
+                    api, secret_name, repo_url or "", branch, ref_type
+                )
+            elif secret_name:
+                await _require_secret(api, secret_name)
 
             existing = await _app_or_none(api, app_name)
             if existing:
@@ -500,21 +661,22 @@ def register_app_tools(mcp: FastMCP) -> None:
                 created = await api.create_app({
                     "name": app_name, "runtime": "custom", "organizationId": organization_id,
                     "subOrganizationId": "", "businessUnitId": "", "workloadManagementId": "",
-                    "deploymentType": "docker",
+                    "deploymentType": "git" if is_git else "docker",
                 })
                 if not created or not created.get("id"):
                     raise NifeAPIError("The backend did not return the new app's id.")
                 app_id = created["id"]
 
-            stage = "configuring regions"
-            try:
-                await api.configure_regions(app_name, codes)
-            except NifeAPIError as exc:
-                if "internal system error" in str(exc) or "no cluster details" in str(exc):
-                    raise NifeAPIError(
-                        "The organization's cluster configuration is missing. Ask an administrator to fix it."
-                    ) from exc
-                raise
+            # A private image's registry secret, or a private repository's Git token, is linked to
+            # the app first, as the dashboard does: the build reads the token from it, and the
+            # cluster pulls with it, before anything is deployed to a region.
+            if secret_name and (not is_git or private_repo):
+                stage = "linking the Git token" if is_git else "linking the registry secret"
+                await api.link_registry_secret(app_name, secret_name)
+
+            if is_git:
+                stage = "building the image from Git"
+                image = await _build_image(api, app_name, source_url or "", port, dockerfile, dockerfile_path)
 
             stage = "applying the app configuration"
             update: Dict[str, Any] = {
@@ -530,17 +692,23 @@ def register_app_tools(mcp: FastMCP) -> None:
                 update["envMapArgs"] = env_args
             await api.update_app(update)
 
+            stage = "configuring regions"
+            try:
+                await api.configure_regions(app_name, codes)
+            except NifeAPIError as exc:
+                if "internal system error" in str(exc) or "no cluster details" in str(exc):
+                    raise NifeAPIError(
+                        "The organization's cluster configuration is missing. Ask an administrator to fix it."
+                    ) from exc
+                raise
+
             stage = "reading the generated configuration"
             definition = await _wait_for_definition(api, app_name)
-
-            if registry_secret_name:
-                stage = "linking the registry secret"
-                await api.link_registry_secret(app_name, registry_secret_name)
 
             stage = "deploying the image"
             release = await api.deploy_image({
                 "appId": app_name, "image": image, "definition": definition,
-                "envMapArgs": env_args, "envArgs": "", "archiveUrl": "",
+                "envMapArgs": env_args, "envArgs": "", "archiveUrl": repo_url or "",
                 "strategy": strategy, "deploymentType": strategy,
                 "workloadType": "deployment", "resourceType": "CPU",
             })
@@ -564,6 +732,7 @@ def register_app_tools(mcp: FastMCP) -> None:
         logger.info("deploy_app: app=%s regions=%s resumed=%s", app_name, codes, resumed)
         return {
             "submitted": True, "app_name": app_name, "resumed_draft": resumed, "image": image,
+            **({"source": {"type": "git", "repo": repo_url, "branch": branch, "private": private_repo}} if is_git else {}),
             "regions": codes, "replicas": replicas, "port": port, "external_port": external_port,
             "env_variable_names": sorted(k for k, v in (env or {}).items() if v),
             "release": {"id": release.get("id"), "version": release.get("version"), "status": release.get("status")},

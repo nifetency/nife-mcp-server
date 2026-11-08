@@ -32,7 +32,9 @@ DEPLOYING A SITE
 3. For a Git repo, call inspect_repository first. It tells you if the repo is public or
    private, whether the branch exists, and which framework and build settings to use.
 4. PRIVATE repositories: call list_git_secrets and pass the chosen secret's NAME as
-   pat_secret_name. Never ask the user to paste a token into the chat.
+   pat_secret_name. Never ask the user to paste a token into the chat. If no suitable secret
+   exists, tell the user to add their Git token under Secrets in the Nife dashboard, then
+   call list_git_secrets again.
 5. Call deploy_site once. It performs every backend step itself. Do not chain lower-level calls.
 6. Poll get_site_status until the status is no longer in progress; on failure read the build
    log URL from list_site_deployments.
@@ -180,7 +182,8 @@ def register_site_tools(mcp: FastMCP) -> None:
     ) -> Dict[str, Any]:
         """List stored secrets (names only) that can be used as a Git personal access
         token for private repositories. Pass the name as pat_secret_name.
-        Secret values are never returned."""
+        Secret values are never returned. Tokens are added in the Nife dashboard (Secrets),
+        not through this connector."""
         try:
             secrets = await get_api(ctx).list_secrets()
         except NifeAPIError as exc:
@@ -945,40 +948,8 @@ def register_site_tools(mcp: FastMCP) -> None:
         }
 
     # --------------------------------------------------------- secret management
-    @mcp.tool(annotations=WRITE, title="Add Git secret")
-    async def add_git_secret(
-        name: Annotated[str, Field(description="A short label for this secret, e.g. 'my-github-pat'. Used as pat_secret_name in deploy_site.")],
-        registry_type: Annotated[
-            Literal["github", "gitlab", "bitbucket"],
-            Field(description="Git provider this token belongs to"),
-        ],
-        token: Annotated[str, Field(description="The personal access token (PAT) value. Stored securely — never logged or returned.")],
-        organization_id: Annotated[str, Field(description="Organization to store the secret under (from list_organizations)")],
-        ctx: Context,
-    ) -> Dict[str, Any]:
-        """Store a Git personal access token (PAT) as a named secret so it can be used
-        for private repository deployments. Pass the returned name as pat_secret_name
-        in deploy_site or inspect_repository. The token value is never returned after this call."""
-        api = get_api(ctx)
-        try:
-            orgs = await api.organizations()
-            if organization_id not in {o["id"] for o in orgs}:
-                raise ValueError("Unknown organization_id. Use list_organizations to see available organizations.")
-            result = await api.add_secret(
-                name=name.strip(),
-                registry_type=registry_type,
-                password=token,
-                organization_id=organization_id,
-            )
-        except (ValueError, NifeAPIError) as exc:
-            raise fail(exc)
-        return {
-            "stored": True,
-            "name": name,
-            "registry_type": registry_type,
-            "organization_id": organization_id,
-            "note": "Use this name as pat_secret_name when calling deploy_site or inspect_repository.",
-        }
+    # Deliberately no tool to ADD a Git token: it would have to pass through the chat and the
+    # model. Users add tokens in the Nife dashboard (Secrets) and reference them by name.
 
     @mcp.tool(annotations=DESTRUCTIVE, title="Delete Git secret")
     async def delete_git_secret(

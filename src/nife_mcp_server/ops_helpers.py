@@ -7,6 +7,7 @@ INCIDENT_STATUSES = ("open", "investigating", "resolved", "closed")
 ALERT_STATUSES = ("firing", "active", "acknowledged", "resolved")
 # 'month', '7d', '30d', '2026-10' ...: the backend defines the vocabulary, so only the shape is checked.
 PERIOD_RE = re.compile(r"^[A-Za-z0-9_-]{1,16}$")
+DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 # Sanity bounds for what the model may ask for.
 MAX_TEXT = 4000
 

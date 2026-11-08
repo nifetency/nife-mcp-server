@@ -80,6 +80,9 @@ yarn.lock
 *.pyo
 *.pyd
 
+# Files parked for manual deletion
+_to_delete/
+
 # Temporary files
 *.tmp
 *.temp

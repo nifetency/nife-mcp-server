@@ -91,10 +91,12 @@ def test_approval_detection():
 class FakeAPI:
     """Records every backend call, in order."""
 
-    def __init__(self, *, existing=None, deploy_error=None, secrets=None, org_regions=None):
+    def __init__(self, *, existing=None, deploy_error=None, link_error=None, build_error=None, secrets=None, org_regions=None):
         self.calls = []
         self.existing = existing
         self.deploy_error = deploy_error
+        self.link_error = link_error
+        self.build_error = build_error
         self.secrets = secrets if secrets is not None else []
         self._org_regions = org_regions if org_regions is not None else []
 
@@ -135,6 +137,17 @@ class FakeAPI:
 
     async def link_registry_secret(self, app_name, secret_name):
         self.calls.append(("link_registry_secret", app_name, secret_name))
+        if self.link_error:
+            raise NifeAPIError(self.link_error)
+
+    async def secret_value(self, name):
+        return "stored-" + name
+
+    async def start_build(self, input_):
+        self.calls.append(("start_build", input_))
+        if self.build_error:
+            raise NifeAPIError(self.build_error)
+        return {"build": {"id": "b1", "status": "done", "image": input_["imageTag"]}}
 
     async def deploy_image(self, input_):
         self.calls.append(("deploy_image", input_))
@@ -177,8 +190,8 @@ def test_deploy_app_follows_the_dashboard_sequence(monkeypatch):
     out = _deploy(monkeypatch, api, env={"MODE": "prod"}, registry_secret_name="hub", replicas=3)
 
     assert _names(api) == [
-        "app", "create_app", "configure_regions", "update_app",
-        "app_definition", "link_registry_secret", "deploy_image",
+        "app", "create_app", "link_registry_secret", "update_app",
+        "configure_regions", "app_definition", "deploy_image",
     ]
     calls = {c[0]: c for c in api.calls}
     create = calls["create_app"][1]
@@ -241,6 +254,15 @@ def test_deploy_app_draft_in_another_org_is_rejected(monkeypatch):
         _deploy(monkeypatch, api)
 
 
+def test_failed_registry_link_stops_before_any_region_work(monkeypatch):
+    api = FakeAPI(secrets=[{"name": "hub", "registryType": "docker"}], link_error="secret not found")
+    with pytest.raises(ToolError, match="linking the registry secret"):
+        _deploy(monkeypatch, api, registry_secret_name="hub")
+    names = _names(api)
+    assert "create_app" in names
+    assert not {"update_app", "configure_regions", "deploy_image"} & set(names)
+
+
 def test_failure_after_create_explains_the_draft(monkeypatch):
     api = FakeAPI(deploy_error="image pull failed")
     with pytest.raises(ToolError) as exc:
@@ -255,3 +277,107 @@ def test_approval_gate_is_reported_not_raised(monkeypatch):
     out = _deploy(monkeypatch, api)
     assert out["approval_pending"] is True and out["submitted"] is False
     assert out["approval_id"] == "appr_9"
+
+
+# ------------------------------------------------------------- Git source flow
+REPO = "https://github.com/acme/api"
+
+
+def _report(**overrides):
+    base = {"accessible": True, "visibility": "public", "default_branch": "main", "branch": "main",
+            "branch_exists": None, "notes": []}
+    base.update(overrides)
+    return base
+
+
+def _git(monkeypatch, api, report=None, **overrides):
+    seen = {}
+
+    async def fake_inspect(repo_url, *, branch, ref_type="heads", token=None):
+        seen.update(repo_url=repo_url, branch=branch, token=token)
+        return report or _report()
+
+    monkeypatch.setattr(app_tools.git_access, "inspect_repository", fake_inspect)
+    monkeypatch.setattr(app_tools.h, "decrypt_secret", lambda stored, key=None: "tok-" + stored)
+    args = dict(app_name="demo", repo_url=REPO, organization_id=ORG, region_codes=["ap-south-1"])
+    args.update(overrides)
+    return _run(monkeypatch, api, "deploy_app_from_git", **args), seen
+
+
+def test_git_deploy_builds_then_follows_the_same_sequence(monkeypatch):
+    api = FakeAPI()
+    out, seen = _git(monkeypatch, api)
+
+    assert _names(api) == [
+        "app", "create_app", "start_build", "update_app",
+        "configure_regions", "app_definition", "deploy_image",
+    ]
+    calls = {c[0]: c for c in api.calls}
+    assert calls["create_app"][1]["deploymentType"] == "git"
+    build = calls["start_build"][1]
+    assert build["sourceUrl"] == "https://github.com/acme/api/archive/refs/heads/main.zip"
+    assert build["sourceType"] == "git" and build["buildType"] == "Builtin" and build["fileExtension"] == "zip"
+    assert build["imageTag"].startswith("nife123/demo:deployment-") and build["internalPort"] == "3000"
+    assert "dockerFile" not in build and "dockerFilePath" not in build
+    built = build["imageTag"]
+    assert json.loads(calls["update_app"][1]["build"]) == {"builder": "image", "image": built}
+    deploy = calls["deploy_image"][1]
+    assert deploy["image"] == built and deploy["archiveUrl"] == REPO
+    assert out["submitted"] is True and out["image"] == built
+    assert out["source"] == {"type": "git", "repo": REPO, "branch": "main", "private": False}
+    assert seen["token"] is None
+
+
+def test_git_private_repo_links_the_token_before_the_build_and_never_leaks_it(monkeypatch):
+    api = FakeAPI(secrets=[{"name": "gh", "registryType": "PAT"}])
+    out, seen = _git(monkeypatch, api, report=_report(visibility="private"), pat_secret_name="gh")
+
+    names = _names(api)
+    assert names.index("create_app") < names.index("link_registry_secret") < names.index("start_build")
+    assert [c for c in api.calls if c[0] == "link_registry_secret"][0][1:] == ("demo", "gh")
+    assert seen["token"] == "tok-stored-gh"  # used for the access check only
+    assert "tok-" not in json.dumps(out) and out["source"]["private"] is True
+
+
+def test_git_public_repo_does_not_link_a_token_even_if_given(monkeypatch):
+    api = FakeAPI(secrets=[{"name": "gh", "registryType": "PAT"}])
+    _git(monkeypatch, api, pat_secret_name="gh")
+    assert "link_registry_secret" not in _names(api)
+
+
+def test_git_dockerfile_options_are_passed_through(monkeypatch):
+    api = FakeAPI()
+    _git(monkeypatch, api, dockerfile_path="docker/Dockerfile")
+    assert dict((c[0], c) for c in api.calls)["start_build"][1]["dockerFilePath"] == "docker/Dockerfile"
+    api = FakeAPI()
+    _git(monkeypatch, api, dockerfile="FROM nginx")
+    assert dict((c[0], c) for c in api.calls)["start_build"][1]["dockerFile"] == "FROM nginx"
+
+
+def test_git_validation_failures_create_nothing(monkeypatch):
+    cases = [
+        (dict(), _report(visibility="private")),                                # private, no token
+        (dict(), _report(accessible=False, visibility="unknown", notes=["Not found."])),
+        (dict(branch="nope"), _report(branch_exists=False)),
+        (dict(dockerfile="FROM x", dockerfile_path="Dockerfile"), None),
+        (dict(dockerfile_path="../etc/passwd"), None),
+        (dict(repo_url="http://github.com/acme/api"), None),                    # not https
+        (dict(repo_url="https://example.com/acme/api"), None),                  # unsupported host
+        (dict(ref_type="tags"), None),                                          # tag name missing
+        (dict(pat_secret_name="gl"), None),                                     # wrong provider
+        (dict(pat_secret_name="missing"), None),
+    ]
+    for overrides, report in cases:
+        api = FakeAPI(secrets=[{"name": "gl", "registryType": "GitLab"}])
+        with pytest.raises(ToolError):
+            _git(monkeypatch, api, report=report, **overrides)
+        assert "create_app" not in _names(api), overrides
+
+
+def test_git_build_failure_leaves_a_resumable_draft(monkeypatch):
+    api = FakeAPI(build_error="build failed: no Dockerfile found")
+    with pytest.raises(ToolError) as exc:
+        _git(monkeypatch, api)
+    text = str(exc.value)
+    assert "building the image from Git" in text and "no Dockerfile found" in text and "draft" in text
+    assert not {"update_app", "configure_regions", "deploy_image"} & set(_names(api))

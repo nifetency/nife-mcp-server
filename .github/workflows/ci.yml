@@ -38,15 +38,14 @@ jobs:
         # Exit-zero treats all errors as warnings
         flake8 src --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
     
-    - name: Test installation
-      run: |
-        pip install -e .
-        nife-mcp-server --version || echo "Server starts successfully"
-    
     - name: Test imports
       run: |
         python -c "from nife_mcp_server import intelligent_main"
         python -c "from nife_mcp_server import schema_manager"
+        python -c "from nife_mcp_server import http_app"
+
+    - name: Run tests
+      run: python -m pytest tests -v --tb=short
 
   build:
     runs-on: ubuntu-latest
@@ -98,11 +97,13 @@ jobs:
     - name: Security check with Safety
       run: |
         pip install -r requirements.txt
-        safety check || echo "Safety check completed with warnings"
+        # Advisory only: known-vulnerable pins are reported but do not block merges
+        safety check || echo "::warning::safety reported issues"
     
     - name: Security check with Bandit
       run: |
-        bandit -r src/ -f json -o bandit-report.json || echo "Bandit check completed"
+        # Fails the job on HIGH severity findings only (-lll); the JSON report holds everything
+        bandit -r src/ -lll -f json -o bandit-report.json
     
     - name: Upload security report
       uses: actions/upload-artifact@v4
