@@ -15,6 +15,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Custom-domain tools: `get_domain_dns_instructions`, `add_site_custom_domain`, `remove_site_custom_domain`, `get_app_custom_domain`, `add_app_custom_domain` (load balancer lookup, DNS sync and ingress rule in one call; safe to retry) and `remove_app_custom_domain`. Removals require the domain name as `confirm_domain`
 - Platform, infrastructure, VM and cron tools (read-only listings; cron trigger and `vm_power_action` are confirm-gated)
 - `finops_post` client helper for the FinOps service
+- Renamed the infrastructure tool `list_cloud_accounts` to `list_connected_cloud_accounts`. It clashed with the site tool of the same name, so only one of the two was ever exposed and the other was silently dropped. `list_cloud_accounts` (AWS accounts a site can be hosted in) is unchanged
+- Added `tests/test_tool_names.py`, which fails if two modules register the same tool name
 - The stdio server now offers the curated tools too (`stdio_tools.py`, `tool_registry.py`). They load when `mcp` and `httpx` are installed and use `NIFE_ACCESS_TOKEN`; schema-generated tools win on a name clash and the server runs without the extra packages. Over HTTP the Authorization header is still required, with no fallback to the local token
 - Tests for custom domains, NERO/FinOps, platform, infra, VM, cron and a version-consistency check
 

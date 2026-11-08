@@ -99,7 +99,7 @@ def register_vm_tools(mcp: FastMCP) -> None:
     @guarded
     async def validate_cloud_account(
         organization_id: OrgId,
-        account_id: Annotated[str, Field(description="Account id from list_cloud_accounts")],
+        account_id: Annotated[str, Field(description="Account id from list_connected_cloud_accounts")],
         ctx: Context,
     ) -> Dict[str, Any]:
         """Re-check a connected cloud account's credentials with the provider and update its status
@@ -112,7 +112,7 @@ def register_vm_tools(mcp: FastMCP) -> None:
             {"orgId": organization_id},
         )
         if not any(a and a.get("id") == wanted for a in listed.get("listCloudAccounts") or []):
-            raise NifeAPIError("No cloud account with that id was found in this organization. Use list_cloud_accounts.")
+            raise NifeAPIError("No cloud account with that id was found in this organization. Use list_connected_cloud_accounts.")
         data = await api.graphql(
             """mutation ValidateCloudAccount($id: String!) {
                  validateCloudAccount(id: $id) { id name cloud status lastValidatedAt }

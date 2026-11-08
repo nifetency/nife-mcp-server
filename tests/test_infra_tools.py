@@ -21,7 +21,7 @@ def test_all_infra_tools_register_and_only_read():
     tools = mcp._tool_manager.list_tools()
     names = [t.name for t in tools]
     assert len(names) == len(set(names)) == 11
-    assert {"list_cloud_accounts", "list_agents", "get_resource_forecast", "list_roles",
+    assert {"list_connected_cloud_accounts", "list_agents", "get_resource_forecast", "list_roles",
             "list_managed_clusters", "list_vm_node_pools"} <= set(names)
     for t in tools:
         assert t.annotations.readOnlyHint is True and t.annotations.destructiveHint is False, t.name
@@ -89,7 +89,7 @@ AGENTS = {"OwnAgents": {"listAgents": [{"id": "a1", "clusterID": "c1"}]}}
 
 def test_org_keyed_tools_reject_a_foreign_organization(monkeypatch):
     api = FakeAPI()
-    for name in ("list_cloud_accounts", "get_resource_forecast", "list_managed_clusters", "list_vm_node_pools"):
+    for name in ("list_connected_cloud_accounts", "get_resource_forecast", "list_managed_clusters", "list_vm_node_pools"):
         with pytest.raises(ToolError, match="Unknown organization_id"):
             _run(monkeypatch, api, name, organization_id="org-other")
     for name in ("list_business_units", "list_agents"):
@@ -109,7 +109,7 @@ def test_cluster_keyed_tools_prove_the_agent_first(monkeypatch):
 
 def test_cloud_accounts_list(monkeypatch):
     api = FakeAPI({"ListCloudAccounts": {"listCloudAccounts": [{"id": "x", "cloud": "aws"}, None]}})
-    out = _run(monkeypatch, api, "list_cloud_accounts", organization_id="org-1")
+    out = _run(monkeypatch, api, "list_connected_cloud_accounts", organization_id="org-1")
     assert out == {"accounts": [{"id": "x", "cloud": "aws"}], "count": 1}
     assert _backend_calls(api)[0][1] == {"orgId": "org-1"}
 

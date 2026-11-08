@@ -466,8 +466,9 @@ def register_ops_tools(mcp: FastMCP) -> None:
         api = get_api(ctx)
         per = o.check_period(period)
         app_id = None
-        if _opt(app_name, "app_name"):
-            app = await api.app(app_name.strip())
+        wanted = _opt(app_name, "app_name")
+        if wanted:
+            app = await api.app(wanted)
             if not app or not app.get("id"):
                 raise NifeAPIError("No app with that name was found. Use list_apps to see your apps.")
             app_id = app["id"]

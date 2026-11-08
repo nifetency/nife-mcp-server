@@ -23,7 +23,9 @@ logger = logging.getLogger(__name__)
 INFRA_INSTRUCTIONS = """\
 
 INFRASTRUCTURE, AGENTS AND GOVERNANCE
-- list_cloud_accounts shows the cloud accounts connected to an organization (no credentials).
+- list_connected_cloud_accounts shows every cloud account connected to an organization (AWS, GCP,
+  Azure, OpenStack; no credentials). It is separate from list_cloud_accounts, which lists only the
+  AWS accounts a site can be hosted in.
   list_business_units shows the business units. list_roles shows the platform roles and what
   each can do. get_plan_limits shows what the caller's plan allows.
 - list_agents shows the Nife agents running in customer clusters. get_agent_metrics,
@@ -70,9 +72,9 @@ def _forecast_view(data: Dict[str, Any]) -> Dict[str, Any]:
 
 def register_infra_tools(mcp: FastMCP) -> None:
     # ============================================================ accounts
-    @mcp.tool(annotations=READ_ONLY, title="List cloud accounts")
+    @mcp.tool(annotations=READ_ONLY, title="List connected cloud accounts")
     @guarded
-    async def list_cloud_accounts(organization_id: OrgId, ctx: Context) -> Dict[str, Any]:
+    async def list_connected_cloud_accounts(organization_id: OrgId, ctx: Context) -> Dict[str, Any]:
         """Cloud accounts connected to an organization (AWS, GCP, Azure, OpenStack) with status and
         when they were last validated. Credentials are never returned."""
         api = get_api(ctx)

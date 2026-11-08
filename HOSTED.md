@@ -129,7 +129,8 @@ stored secret; the server resolves the token itself.
 Not supported through MCP in v1: uploading a local zip (a remote server cannot read
 the user's disk). Use a Git repo or a public archive URL.
 
-The site tools also include `get_site_details`, `get_site_overview`, `get_site_traffic`,
+The site tools also include `list_cloud_accounts` (the AWS accounts a site can be hosted in, passed as
+`cloud_account_id` to `deploy_site`), `get_site_details`, `get_site_overview`, `get_site_traffic`,
 `get_site_uptime`, `get_site_bandwidth`, `get_site_analytics`, `list_site_deployments`,
 `list_site_releases`, `get_release_details`, `revert_site_version`, `delete_site`,
 `enable_site_traffic_monitoring` and `delete_git_secret`.
@@ -171,7 +172,8 @@ infrastructure and is marked destructive; it previews unless `confirm=true`.
 
 ### Infrastructure and access (read-only)
 
-`list_cloud_accounts` (all clouds, status, no credentials), `list_business_units`, `list_roles`,
+`list_connected_cloud_accounts` (all clouds, status, no credentials; not the same as the site tool
+`list_cloud_accounts`, which lists only the AWS accounts a site can be hosted in), `list_business_units`, `list_roles`,
 `get_plan_limits`, `list_managed_clusters`, `list_vm_node_pools`, `list_agents`, `get_agent_metrics`,
 `get_agent_security_findings`, `get_agent_health_checks`, `get_resource_forecast`.
 

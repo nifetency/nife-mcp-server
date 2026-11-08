@@ -213,7 +213,9 @@ def budget_attention(usage: Dict[str, Any]) -> List[str]:
 def month_over_month(stats: Dict[str, Any]) -> Optional[float]:
     """Percent change of this month against last month, or None when there is no basis."""
     this, last = stats.get("thisMonth"), stats.get("lastMonth")
-    if not all(isinstance(v, (int, float)) and not isinstance(v, bool) for v in (this, last)) or last <= 0:
+    if isinstance(this, bool) or isinstance(last, bool):
+        return None
+    if not isinstance(this, (int, float)) or not isinstance(last, (int, float)) or last <= 0:
         return None
     return round((this - last) / last * 100, 1)
 
@@ -267,7 +269,8 @@ def check_group_by(values: Optional[List[str]]) -> Optional[List[str]]:
 
 
 def resource_view(r: Dict[str, Any]) -> Dict[str, Any]:
-    meta = r.get("metadata") if isinstance(r.get("metadata"), dict) else {}
+    raw_meta = r.get("metadata")
+    meta: Dict[str, Any] = raw_meta if isinstance(raw_meta, dict) else {}
     return {
         "id": r.get("id"), "resource_id": r.get("resourceId"), "name": r.get("name"),
         "provider": r.get("provider"), "service": r.get("service"), "region": r.get("region"),

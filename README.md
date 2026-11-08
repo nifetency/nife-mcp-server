@@ -212,7 +212,7 @@ These tools only read. Cloud credentials and kubeconfig locations are never requ
 
 | Tool | What it does |
 |------|--------------|
-| `list_cloud_accounts` | Cloud accounts connected to an organization, without credentials |
+| `list_connected_cloud_accounts` | Every cloud account connected to an organization (AWS, GCP, Azure, OpenStack), without credentials. The site tool `list_cloud_accounts` lists only the AWS accounts a site can be hosted in |
 | `list_managed_clusters`, `list_vm_node_pools` | Provisioned Kubernetes clusters (no kubeconfig) and VM pools |
 | `list_business_units`, `list_roles`, `get_plan_limits` | Business units; role permissions; what the plan allows |
 | `list_agents`, `get_agent_metrics` | Nife agents in customer clusters; cluster, node and app usage |
