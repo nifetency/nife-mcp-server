@@ -47,31 +47,43 @@ Limits: no refresh tokens (when the Nife token expires, `/mcp` answers 401 and C
 to sign in again), and authorization codes are short-lived (2 min) and PKCE-bound but not
 single-use.
 
-## Tools (v1: static sites, v1.1: container apps)
+## Tools
 
-Container apps and deployments (curated over `apps.graphqls` / `deploy.graphqls`):
+### Container apps and deployments
+
+Curated over `apps.graphqls` / `deploy.graphqls`.
 
 | Tool | Purpose |
 |---|---|
-| `list_apps` / `get_app` | Inventory and full configuration (env var names only) |
+| `list_apps` / `get_app` | Inventory and full configuration (env var names only, never values) |
 | `get_app_status` | Live health: deployment progress, healthy/unhealthy instances, crash-loop hints |
 | `list_app_releases` | Release history; versions feed `revert_app_release` |
 | `get_app_logs` | Recent log lines of running instances (not a search) |
+| `list_app_regions` | Regions a new app can be deployed to for an organization |
+| `deploy_app` | **New app** from a Docker image in one call (see below) |
 | `resume_app` | Resume a paused app |
 | `restart_app`, `pause_app`, `scale_app`, `redeploy_app_image`, `revert_app_release`, `set_app_env` | Change a live app (marked destructive) |
 | `delete_app` | Permanent; needs the app name twice |
 
-Not yet: creating a new app (`createApp` + `deployImage` / `upsertAndDeployApp`), canary and blue-green
-for apps, volumes, custom domains.
+`deploy_app` follows the dashboard's sequence server-side: create the app, set regions, apply ports,
+replicas, size and environment, read back the generated configuration, link a registry secret for a
+private image, and deploy. Docker images only, with the `rolling`, `rolling-update` or `recreate`
+strategy (defaults: port 3000, external port 80, 2 replicas, 0.5 CPU, 1024 MiB). If a step fails after
+the app was created, the app stays a draft; calling `deploy_app` again with the same name resumes it.
+If the backend holds the rollout for approval, the tool returns `approval_pending` instead of failing.
+For a private image the model passes only the NAME of a stored registry secret.
 
 `set_app_env` note: the backend replaces the whole env set on every update, so the tool reads the
 current values server-side, merges, and redeploys the current image. It refuses to run if it cannot
 read the existing variables (override: `allow_replace_all`). New values are encrypted like the
-dashboard does (needs `NIFE_ENV_ENCRYPTION_KEY`; without it they are sent as plaintext), existing
-values pass through as stored. Approval and billing gates in the
-backend (`RedeployImage`) can hold or reject a rollout; the error is passed through.
+dashboard's `encryptPassword` (key: `NIFE_ENV_ENCRYPTION_KEY` or `NIFE_ENCRYPTION_KEY`, which must be
+the same value as the dashboard's `VITE_ENCRYPTION_KEY`; without a key they are sent as plaintext),
+existing values pass through as stored. Approval and billing gates in the backend (`RedeployImage`)
+can hold or reject a rollout; the error is passed through.
 
-Static sites:
+Not yet for apps: canary, blue-green and A/B rollouts, volume creation, and deploying from Git.
+
+### Static sites
 
 | Tool | Purpose |
 |---|---|
@@ -89,6 +101,65 @@ stored secret; the server resolves the token itself.
 
 Not supported through MCP in v1: uploading a local zip (a remote server cannot read
 the user's disk). Use a Git repo or a public archive URL.
+
+The site tools also include `get_site_details`, `get_site_overview`, `get_site_traffic`,
+`get_site_uptime`, `get_site_bandwidth`, `get_site_analytics`, `list_site_deployments`,
+`list_site_releases`, `get_release_details`, `revert_site_version`, `delete_site`,
+`enable_site_traffic_monitoring`, `inspect_repository`, `add_git_secret` and `delete_git_secret`.
+
+### Custom domains
+
+| Tool | Purpose |
+|---|---|
+| `get_domain_dns_instructions` | The CNAME the user must create first (read-only) |
+| `get_app_custom_domain` / `get_site_custom_domain` | Domain state: DNS synced, SSL |
+| `add_app_custom_domain` / `add_site_custom_domain` | Attach a domain and sync DNS |
+| `remove_app_custom_domain` / `remove_site_custom_domain` | Detach (destructive; the default address keeps working) |
+
+### Operations: incidents, alerts, SLOs
+
+`get_health_insights`, `list_incidents`, `get_incident`, `get_root_cause_analysis`, `list_alerts`,
+`list_anomalies`, `predict_failures`, `get_slo_status`, `get_health_report`, `search_knowledge_base`
+(all read-only), and `acknowledge_alert` / `resolve_alert` (idempotent writes).
+
+### Billing and FinOps
+
+Read-only: `get_spending_overview`, `get_usage_stats`, `list_billing_cycles`, `get_billing_items`,
+`list_invoices`, `get_cloud_billing_summary`, `list_cost_recommendations`, `get_cost_forecast`,
+`get_cost_anomalies`, `get_cost_usage_patterns`, `get_finops_resource_stats`,
+`search_finops_resources`, `get_cost_breakdown`. `apply_cost_recommendation` can change real
+infrastructure and is marked destructive.
+
+### Platform: delivery, usage, capacity (all read-only)
+
+`get_org_dora_metrics`, `get_deployment_history`, `get_incident_history`, `get_audit_log_summary`,
+`get_restore_history`, `get_regulatory_reporting`, `get_incident_regulatory_reports`,
+`list_backup_policies`, `get_capacity_thresholds`, `get_usage_report_subscription`,
+`get_app_usage_metrics`, `get_usage_summary`, `get_app_cost`, `estimate_deployment_cost`,
+`get_credits`, `get_volume_overview`, `get_app_failover`, `list_cloud_hosts`, `list_workloads`,
+`list_clusters`, `get_cluster_capacity`.
+
+### Infrastructure and access (read-only)
+
+`list_cloud_accounts` (all clouds, status, no credentials), `list_business_units`, `list_roles`,
+`get_plan_limits`, `list_managed_clusters`, `list_vm_node_pools`, `list_agents`, `get_agent_metrics`,
+`get_agent_security_findings`, `get_agent_health_checks`, `get_resource_forecast`.
+
+### Servers and VMs
+
+`vm_power_action` (start, stop or restart a registered server; destructive, asks for confirmation) and
+`validate_cloud_account` (re-check a cloud account's credentials; changes only its status).
+
+### Cron jobs
+
+`list_cron_job_runs`, `get_cron_job_run_logs` (read-only) and `trigger_cron_job_run` (runs the job
+for real, so it asks for confirmation first).
+
+### Not covered
+
+Databases, webhooks, API and personal access tokens, compliance, code scan, GitHub Actions and
+workflows, templates, marketplace, image optimization, email management, the vault and cloud-account
+secrets (only Git secrets exist), and creating volumes, backups or VMs.
 
 ## Deploy the server
 
@@ -164,5 +235,5 @@ pytest
 * Refresh tokens / dedicated revocable MCP tokens for the OAuth flow, and OAuth for
   non-Claude clients that need custom redirect schemes.
 * Presigned upload tool for local archives.
-* More tool groups (logs and metrics search, domains and env vars, volumes, databases, clusters), each curated rather than auto-generated.
-* Container app creation (`upsertAndDeployApp`).
+* Remaining tool groups from "Not covered" above, each curated rather than auto-generated.
+* Canary, blue-green and A/B rollouts and Git-based builds for container apps.

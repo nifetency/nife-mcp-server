@@ -24,7 +24,8 @@ Nife.io connector for static sites: deploy, manage, and inspect them.
 
 DEPLOYING A SITE
 1. Ask for a site name and an organization (list_organizations, top-level only). If the
-   organization has AWS cloud accounts (list_cloud_accounts) the site can be hosted there.
+   organization has an active AWS cloud account (list_cloud_accounts; look for cloud AWS) the
+   site can be hosted there instead of on Nife.
 2. Ask how the code is provided: a Git repository (GitHub/GitLab/Bitbucket) or a public
    archive URL (.zip/.tar/.tar.gz); and whether it is already built (import_type 'build')
    or must be built (import_type 'source').
@@ -150,25 +151,6 @@ def register_site_tools(mcp: FastMCP) -> None:
                 {"id": o["id"], "name": o.get("name"), "slug": o.get("slug"), "type": o.get("type")}
                 for o in orgs
             ]
-        }
-
-    @mcp.tool(annotations=READ_ONLY, title="List cloud accounts")
-    async def list_cloud_accounts(
-        organization_id: Annotated[str, Field(description="Organization id from list_organizations")],
-        ctx: Context,
-    ) -> Dict[str, Any]:
-        """List the organization's active AWS cloud accounts. A site can be hosted in one of them
-        (pass its id as cloud_account_id to deploy_site) instead of Nife's own AWS account.
-        An empty list means the site will be hosted on Nife. No credentials are returned."""
-        try:
-            accounts = await get_api(ctx).cloud_accounts(organization_id)
-        except NifeAPIError as exc:
-            raise fail(exc)
-        return {
-            "cloud_accounts": [
-                {"id": a["id"], "name": a.get("name"), "aws_region": a.get("awsRegion")} for a in accounts
-            ],
-            "default": "Nife (when cloud_account_id is omitted)",
         }
 
     @mcp.tool(annotations=READ_ONLY, title="List site frameworks")
@@ -336,7 +318,7 @@ def register_site_tools(mcp: FastMCP) -> None:
         node_version: Annotated[Optional[str], Field(description="Node major version for the build (default 20)")] = None,
         pat_secret_name: Annotated[Optional[str], Field(description="NAME of a stored secret holding a Git token, REQUIRED for PRIVATE repos (see list_git_secrets). Never pass the token itself.")] = None,
         env: Annotated[Optional[Dict[str, str]], Field(description="Environment variables for the build, as {NAME: value}")] = None,
-        cloud_account_id: Annotated[Optional[str], Field(description="Host the site in this AWS cloud account of the organization (from list_cloud_accounts) instead of Nife's account")] = None,
+        cloud_account_id: Annotated[Optional[str], Field(description="Host the site in this ACTIVE AWS cloud account of the organization (id from list_cloud_accounts, cloud AWS) instead of Nife's account")] = None,
     ) -> Dict[str, Any]:
         """Deploy a NEW static site. Performs every backend step (validate the target, fetch or
         archive the code, resolve build settings, start the deployment) in a single call.
